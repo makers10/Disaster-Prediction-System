@@ -41,8 +41,36 @@ class SensorBuffer:
             return list(self._buffers.keys())
 
 
+class CNNFeatureCache:
+    """Thread-safe cache of the latest CNN features per region."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._cache: Dict[str, Dict[str, Any]] = {}
+        self._satellite_available: bool = True
+
+    def update(self, region_id: str, features: Dict[str, Any]) -> None:
+        with self._lock:
+            self._cache[region_id] = features
+            self._satellite_available = True
+
+    def get(self, region_id: str) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            return self._cache.get(region_id)
+
+    def mark_unavailable(self) -> None:
+        with self._lock:
+            self._satellite_available = False
+        logger.warning("Satellite feed marked unavailable — CNN features disabled")
+
+    def is_available(self) -> bool:
+        with self._lock:
+            return self._satellite_available
+
+
 class PredictionConsumer:
-    """Consumes validated.sensor.reading and raw.weather.forecast Kafka topics.
+    """Consumes validated.sensor.reading, raw.weather.forecast, and
+    features.satellite.cnn Kafka topics.
 
     Buffers readings per region and calls ``on_prediction_cycle`` every
     PREDICTION_INTERVAL_SECONDS for each region that has data.
@@ -50,7 +78,7 @@ class PredictionConsumer:
     Args:
         kafka_brokers: Comma-separated broker addresses.
         prediction_interval_seconds: How often to trigger a prediction cycle.
-        on_prediction_cycle: Callback(region_id, readings) invoked each cycle.
+        on_prediction_cycle: Callback(region_id, readings, cnn_features) invoked each cycle.
         window_size: Number of readings to keep per region.
     """
 
@@ -65,6 +93,7 @@ class PredictionConsumer:
         self.prediction_interval_seconds = prediction_interval_seconds
         self.on_prediction_cycle = on_prediction_cycle
         self.buffer = SensorBuffer(window_size)
+        self.cnn_cache = CNNFeatureCache()
         self._stop_event = threading.Event()
 
     def _consume_loop(self) -> None:
@@ -75,7 +104,12 @@ class PredictionConsumer:
             logger.error("kafka-python not installed; consumer loop disabled.")
             return
 
-        topics = ["validated.sensor.reading", "raw.weather.forecast"]
+        topics = [
+            "validated.sensor.reading",
+            "raw.weather.forecast",
+            "features.satellite.cnn",
+            "satellite.feed.unavailable",
+        ]
         try:
             consumer = KafkaConsumer(
                 *topics,
@@ -95,9 +129,19 @@ class PredictionConsumer:
                 break
             try:
                 payload: Dict[str, Any] = message.value
-                region_id = payload.get("region_id")
-                if region_id:
-                    self.buffer.add(region_id, payload)
+                topic = message.topic
+
+                if topic == "satellite.feed.unavailable":
+                    self.cnn_cache.mark_unavailable()
+                elif topic == "features.satellite.cnn":
+                    region_id = payload.get("region_id")
+                    if region_id:
+                        self.cnn_cache.update(region_id, payload)
+                        logger.debug("CNN features cached for region %s", region_id)
+                else:
+                    region_id = payload.get("region_id")
+                    if region_id:
+                        self.buffer.add(region_id, payload)
             except Exception as exc:
                 logger.warning("Error processing Kafka message: %s", exc)
 

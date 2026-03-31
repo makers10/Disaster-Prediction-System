@@ -53,12 +53,22 @@ def build_prediction_cycle(
         )
         snapshot_id = str(uuid.uuid4())
 
-        # Collect SSM features per disaster type.
+        # Collect SSM features per disaster type, injecting CNN features where available.
         ssm_features: Dict[str, Any] = {}
-        for disaster_type in SUPPORTED_DISASTER_TYPES:
-            routed = feature_router.route(disaster_type, readings, region_id)
-            ssm_features[disaster_type] = ssm_model.extract_features(routed)
+        cnn_features = None
+        if hasattr(consumer, 'cnn_cache') and consumer.cnn_cache.is_available():
+            cnn_features = consumer.cnn_cache.get(region_id)
 
+        for disaster_type in SUPPORTED_DISASTER_TYPES:
+            # Inject CNN-derived cloud_density into readings for cyclone/flood/landslide/drought
+            enriched_readings = readings
+            if cnn_features and disaster_type in ("flood", "drought", "landslide", "cyclone"):
+                enriched_readings = [
+                    {**r, "cloud_density": cnn_features.get("cloud_density", 0.0)}
+                    for r in readings
+                ]
+            routed = feature_router.route(disaster_type, enriched_readings, region_id)
+            ssm_features[disaster_type] = ssm_model.extract_features(routed)
         # Transformer: build region feature map (single region for Phase 1).
         # Use flood SSM vector as the representative region feature.
         region_feature_map = {region_id: ssm_features["flood"]}

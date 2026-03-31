@@ -1,0 +1,1 @@
+# CNN Extractor models package

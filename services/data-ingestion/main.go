@@ -9,7 +9,9 @@ import (
 
 	"github.com/joho/godotenv"
 
+	"github.com/disaster-prediction/data-ingestion/internal/historical"
 	"github.com/disaster-prediction/data-ingestion/internal/ingestion"
+	"github.com/disaster-prediction/data-ingestion/internal/satellite"
 	"github.com/disaster-prediction/data-ingestion/internal/terrain"
 	"github.com/disaster-prediction/data-ingestion/internal/validator"
 	"github.com/disaster-prediction/data-ingestion/internal/weather"
@@ -59,12 +61,26 @@ func main() {
 		os.Exit(1)
 	}
 
+	// --- Task 14.1: Satellite ingestion connector ---
+	satConnector, satErr := satellite.NewConnectorFromEnv(kafkaBrokers)
+	if satErr != nil {
+		slog.Warn("satellite connector not configured — skipping", "reason", satErr)
+		satConnector = nil
+	}
+
+	// --- Task 17.1: Historical data loader ---
+	histLoader := historical.NewLoader(postgresURL, kafkaBrokers)
+
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Run poller, weather poller, and validator as goroutines.
+	// Run all services as goroutines.
 	go poller.Run(ctx)
 	go weatherPoller.Run(ctx)
 	go v.Run(ctx)
+	if satConnector != nil {
+		go satConnector.Run(ctx)
+	}
+	go histLoader.RunPeriodic(ctx)
 
 	slog.Info("Data Ingestion Service running — waiting for shutdown signal")
 
