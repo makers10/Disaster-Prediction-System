@@ -2,6 +2,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { PredictionRecord, UserProfile, AlertRecord } from '../../../shared/types/index';
 import { sendSms } from './channels/sms';
 import { sendPush } from './channels/push';
+import { sendVoice } from './channels/voice';
+import { renderAlertMessage } from './i18n/renderer';
 
 // SLA thresholds in milliseconds
 const HIGH_RISK_SLA_MS = 5 * 60 * 1000;   // 5 minutes
@@ -16,31 +18,13 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Renders a human-readable alert message for the given prediction.
- */
-function renderMessage(prediction: PredictionRecord): string {
-  const action = recommendedAction(prediction);
-  return (
-    `[${prediction.risk_level.toUpperCase()} RISK] ${prediction.disaster_type} alert for your region. ` +
-    `Risk level: ${prediction.risk_level}. ` +
-    (prediction.time_to_impact_h != null
-      ? `Estimated time to impact: ${prediction.time_to_impact_h}h. `
-      : '') +
-    `Recommended action: ${action}`
-  );
-}
-
-function recommendedAction(prediction: PredictionRecord): string {
-  if (prediction.risk_level === 'High') {
-    return 'Evacuate immediately and follow official guidance.';
-  }
-  return 'Stay alert, monitor official channels, and prepare an emergency kit.';
+function recommendedAction(prediction: PredictionRecord, languageCode?: string | null): string {
+  const rendered = renderAlertMessage(prediction, languageCode);
+  return rendered.recommendedAction;
 }
 
 /**
  * Sends an SMS with up to SMS_MAX_RETRIES retries on failure.
- * Returns the delivery status and actual retry count used.
  */
 async function sendSmsWithRetry(
   phoneNumber: string,
@@ -70,7 +54,6 @@ async function sendSmsWithRetry(
 
 /**
  * Checks whether the dispatch is within the SLA window for the given risk level.
- * Logs a warning if the SLA has been breached.
  */
 function checkSla(prediction: PredictionRecord, alertId: string): void {
   const generatedAt = new Date(prediction.generated_at).getTime();
@@ -89,7 +72,11 @@ function checkSla(prediction: PredictionRecord, alertId: string): void {
 
 /**
  * Dispatches alerts for a prediction to all qualifying users.
- * Task 6.6: filters users to only those whose region_ids includes the prediction's region_id.
+ * - Filters users to those whose region_ids includes the prediction's region_id (6.6)
+ * - Renders messages in the user's preferred language (10.1 / 6.4)
+ * - Supports SMS, push, and voice channels (10.3)
+ * - Falls back to SMS when push fails for users with a phone_number (10.4)
+ * - Falls back to SMS when voice fails (10.3)
  */
 export async function dispatch(
   prediction: PredictionRecord,
@@ -101,41 +88,51 @@ export async function dispatch(
     u.region_ids.includes(prediction.region_id)
   );
 
-  const message = renderMessage(prediction);
-  const title = `${prediction.risk_level} Risk: ${prediction.disaster_type}`;
-
   for (const user of eligibleUsers) {
-    for (const channel of user.notification_channels) {
-      if (channel === 'voice') {
-        // Voice not implemented in Phase 1 — skip
-        continue;
-      }
+    // Resolve language: user preference or operator default (handled inside renderAlertMessage)
+    const langCode = user.language_code || null;
+    const { title, body: message, recommendedAction: action } = renderAlertMessage(prediction, langCode);
 
+    for (const channel of user.notification_channels) {
       const alertId = uuidv4();
       checkSla(prediction, alertId);
 
       let deliveryStatus: 'sent' | 'failed' = 'failed';
       let retryCount = 0;
+      let effectiveChannel: 'sms' | 'push' | 'voice' = channel;
 
       if (channel === 'sms') {
         if (!user.phone_number) {
           console.warn(`User ${user.user_id} has no phone_number; skipping SMS.`);
           continue;
         }
-        const result = await sendSmsWithRetry(
-          user.phone_number,
-          message,
-          user.user_id,
-          alertId
-        );
+        const result = await sendSmsWithRetry(user.phone_number, message, user.user_id, alertId);
         deliveryStatus = result.status;
         retryCount = result.retryCount;
+
       } else if (channel === 'push') {
         if (!user.push_token) {
           console.warn(`User ${user.user_id} has no push_token; skipping push.`);
           continue;
         }
         deliveryStatus = await sendPush(user.push_token, title, message);
+
+        // 10.4 — offline fallback: if push fails, try SMS
+        if (deliveryStatus === 'failed' && user.phone_number) {
+          console.warn(`Push failed for user ${user.user_id}, falling back to SMS`);
+          const result = await sendSmsWithRetry(user.phone_number, message, user.user_id, alertId);
+          deliveryStatus = result.status;
+          retryCount = result.retryCount;
+          effectiveChannel = 'sms';
+        }
+
+      } else if (channel === 'voice') {
+        if (!user.phone_number) {
+          console.warn(`User ${user.user_id} has no phone_number; skipping voice.`);
+          continue;
+        }
+        // sendVoice already handles SMS fallback internally and logs it
+        deliveryStatus = await sendVoice(user.phone_number, message);
       }
 
       const alertRecord: AlertRecord = {
@@ -145,10 +142,10 @@ export async function dispatch(
         disaster_type: prediction.disaster_type,
         risk_level: prediction.risk_level as 'Medium' | 'High',
         time_to_impact_h: prediction.time_to_impact_h ?? 0,
-        recommended_action: recommendedAction(prediction),
+        recommended_action: action,
         evacuation_route_id: null,
-        language_code: user.language_code,
-        channel,
+        language_code: langCode ?? (process.env.DEFAULT_LANGUAGE ?? 'en'),
+        channel: effectiveChannel,
         dispatched_at: new Date().toISOString(),
         delivery_status: deliveryStatus,
         retry_count: retryCount,

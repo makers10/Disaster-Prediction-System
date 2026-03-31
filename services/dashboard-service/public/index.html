@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Disaster Prediction — Live Risk Map</title>
+  <title>Disaster Prediction Dashboard</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -32,6 +32,15 @@
     .close-btn { float: right; background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #888; }
     .loading { text-align: center; padding: 40px; color: #888; }
     .error { color: #e53e3e; padding: 12px; background: #fff5f5; border-radius: 6px; }
+    .tabs { display: flex; gap: 0; border-bottom: 2px solid #e2e8f0; margin-bottom: 20px; }
+    .tab-btn { padding: 10px 24px; background: none; border: none; border-bottom: 3px solid transparent; font-size: 0.95rem; font-weight: 500; cursor: pointer; color: #666; margin-bottom: -2px; }
+    .tab-btn.active { color: #1a1a2e; border-bottom-color: #1a1a2e; }
+    .filter-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+    .filter-bar label { font-size: 0.85rem; font-weight: 500; }
+    .filter-bar input, .filter-bar select { padding: 6px 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 0.85rem; }
+    .section { margin-bottom: 28px; }
+    .section h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 10px; color: #333; }
+    .no-data { color: #888; font-size: 0.9rem; padding: 12px 0; }
   </style>
 </head>
 <body>
@@ -123,7 +132,195 @@
       );
     }
 
+    function HistoricalAnalysis() {
+      const [regionId, setRegionId] = useState('');
+      const [disasterType, setDisasterType] = useState('');
+      const [from, setFrom] = useState('');
+      const [to, setTo] = useState('');
+      const [events, setEvents] = useState(null);
+      const [accuracy, setAccuracy] = useState(null);
+      const [patterns, setPatterns] = useState(null);
+      const [loading, setLoading] = useState(false);
+      const [error, setError] = useState(null);
+
+      function buildQS(extra) {
+        const p = new URLSearchParams();
+        if (regionId) p.set('region_id', regionId);
+        if (disasterType) p.set('disaster_type', disasterType);
+        if (from) p.set('from', from);
+        if (to) p.set('to', to);
+        if (extra) Object.entries(extra).forEach(([k,v]) => v && p.set(k, v));
+        return p.toString() ? '?' + p.toString() : '';
+      }
+
+      async function fetchAll() {
+        setLoading(true);
+        setError(null);
+        try {
+          const [evtRes, accRes] = await Promise.all([
+            fetch(`/api/history/events${buildQS()}`),
+            fetch(`/api/history/accuracy${buildQS()}`),
+          ]);
+          if (!evtRes.ok) throw new Error(`Events: ${evtRes.statusText}`);
+          if (!accRes.ok) throw new Error(`Accuracy: ${accRes.statusText}`);
+          setEvents(await evtRes.json());
+          setAccuracy(await accRes.json());
+
+          if (regionId) {
+            const patRes = await fetch(`/api/history/patterns${buildQS()}`);
+            if (patRes.ok) setPatterns(await patRes.json());
+          } else {
+            setPatterns(null);
+          }
+        } catch (e) {
+          setError(String(e));
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+      return (
+        <div>
+          <div className="filter-bar">
+            <label>Region ID:</label>
+            <input
+              type="text"
+              placeholder="e.g. region-001"
+              value={regionId}
+              onChange={e => setRegionId(e.target.value)}
+              style={{width:140}}
+            />
+            <label>Disaster Type:</label>
+            <select value={disasterType} onChange={e => setDisasterType(e.target.value)}>
+              <option value="">All types</option>
+              {DISASTER_TYPES.map(t => (
+                <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+              ))}
+            </select>
+            <label>From:</label>
+            <input type="date" value={from} onChange={e => setFrom(e.target.value)} />
+            <label>To:</label>
+            <input type="date" value={to} onChange={e => setTo(e.target.value)} />
+            <button onClick={fetchAll} style={{padding:'6px 14px',borderRadius:'6px',border:'1px solid #ccc',cursor:'pointer'}}>
+              Apply
+            </button>
+          </div>
+
+          {error && <div className="error" style={{marginBottom:12}}>{error}</div>}
+          {loading && <div className="loading">Loading…</div>}
+
+          {!loading && events !== null && (
+            <div className="section">
+              <h3>Events Timeline</h3>
+              {events.length === 0
+                ? <div className="no-data">No events found for the selected filters.</div>
+                : (
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Region</th>
+                        <th>Disaster Type</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Severity</th>
+                        <th>Source</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {events.map(e => (
+                        <tr key={e.event_id}>
+                          <td>{e.region_id}</td>
+                          <td>{e.disaster_type}</td>
+                          <td>{e.start_date ? e.start_date.slice(0,10) : '—'}</td>
+                          <td>{e.end_date ? e.end_date.slice(0,10) : '—'}</td>
+                          <td>{e.severity != null ? e.severity.toFixed(1) : '—'}</td>
+                          <td>{e.source}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )
+              }
+            </div>
+          )}
+
+          {!loading && accuracy !== null && (
+            <div className="section">
+              <h3>Prediction Accuracy</h3>
+              {accuracy.length === 0
+                ? <div className="no-data">No accuracy data available for the selected filters.</div>
+                : (
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Disaster Type</th>
+                        <th>Precision</th>
+                        <th>Recall</th>
+                        <th>False Alarm Rate</th>
+                        <th>Total Predictions</th>
+                        <th>From</th>
+                        <th>To</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {accuracy.map(a => (
+                        <tr key={a.disaster_type}>
+                          <td>{a.disaster_type}</td>
+                          <td>{a.precision != null ? (a.precision * 100).toFixed(1) + '%' : '—'}</td>
+                          <td>{a.recall != null ? (a.recall * 100).toFixed(1) + '%' : '—'}</td>
+                          <td>{a.false_alarm_rate != null ? (a.false_alarm_rate * 100).toFixed(1) + '%' : '—'}</td>
+                          <td>{a.total_predictions}</td>
+                          <td>{a.from ? new Date(a.from).toLocaleDateString() : '—'}</td>
+                          <td>{a.to ? new Date(a.to).toLocaleDateString() : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )
+              }
+            </div>
+          )}
+
+          {!loading && regionId && (
+            <div className="section">
+              <h3>Seasonal Patterns</h3>
+              {!patterns && <div className="no-data">Click Apply to load patterns.</div>}
+              {patterns && !patterns.has_sufficient_data && (
+                <div className="no-data">Insufficient data — at least 2 years of historical events required for this region.</div>
+              )}
+              {patterns && patterns.has_sufficient_data && patterns.patterns.length === 0 && (
+                <div className="no-data">No pattern data found.</div>
+              )}
+              {patterns && patterns.has_sufficient_data && patterns.patterns.length > 0 && (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Month</th>
+                      <th>Disaster Type</th>
+                      <th>Event Count</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {patterns.patterns.map((p, i) => (
+                      <tr key={i}>
+                        <td>{MONTHS[p.month - 1] ?? p.month}</td>
+                        <td>{p.disaster_type}</td>
+                        <td>{p.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
     function App() {
+      const [tab, setTab] = useState('live');
       const [regions, setRegions] = useState(null);
       const [disasterFilter, setDisasterFilter] = useState('');
       const [selectedRegion, setSelectedRegion] = useState(null);
@@ -170,39 +367,60 @@
       return (
         <div>
           <header>
-            <h1>🌍 Disaster Prediction — Live Risk Map</h1>
+            <h1>🌍 Disaster Prediction Dashboard</h1>
             <span className={`status ${wsStatus === 'live' ? 'live' : ''}`}>
               ● {wsStatus === 'live' ? 'Live' : wsStatus}
             </span>
           </header>
           <div className="container">
-            <div className="toolbar">
-              <label htmlFor="filter">Filter by disaster type:</label>
-              <select
-                id="filter"
-                value={disasterFilter}
-                onChange={e => setDisasterFilter(e.target.value)}
+            <div className="tabs">
+              <button
+                className={`tab-btn${tab === 'live' ? ' active' : ''}`}
+                onClick={() => setTab('live')}
               >
-                <option value="">All types</option>
-                {DISASTER_TYPES.map(t => (
-                  <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
-                ))}
-              </select>
-              <button onClick={() => fetchRegions(disasterFilter)} style={{padding:'6px 14px',borderRadius:'6px',border:'1px solid #ccc',cursor:'pointer'}}>
-                Refresh
+                Live Map
+              </button>
+              <button
+                className={`tab-btn${tab === 'history' ? ' active' : ''}`}
+                onClick={() => setTab('history')}
+              >
+                Historical Analysis
               </button>
             </div>
 
-            {error && <div className="error" style={{marginBottom:12}}>{error}</div>}
+            {tab === 'live' && (
+              <>
+                <div className="toolbar">
+                  <label htmlFor="filter">Filter by disaster type:</label>
+                  <select
+                    id="filter"
+                    value={disasterFilter}
+                    onChange={e => setDisasterFilter(e.target.value)}
+                  >
+                    <option value="">All types</option>
+                    {DISASTER_TYPES.map(t => (
+                      <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                    ))}
+                  </select>
+                  <button onClick={() => fetchRegions(disasterFilter)} style={{padding:'6px 14px',borderRadius:'6px',border:'1px solid #ccc',cursor:'pointer'}}>
+                    Refresh
+                  </button>
+                </div>
 
-            <RegionTable regions={regions} onSelect={setSelectedRegion} />
+                {error && <div className="error" style={{marginBottom:12}}>{error}</div>}
 
-            {selectedRegion && (
-              <RegionDetail
-                regionId={selectedRegion}
-                onClose={() => setSelectedRegion(null)}
-              />
+                <RegionTable regions={regions} onSelect={setSelectedRegion} />
+
+                {selectedRegion && (
+                  <RegionDetail
+                    regionId={selectedRegion}
+                    onClose={() => setSelectedRegion(null)}
+                  />
+                )}
+              </>
             )}
+
+            {tab === 'history' && <HistoricalAnalysis />}
           </div>
         </div>
       );

@@ -208,6 +208,120 @@ class TestFeatureRouter:
         router = FeatureRouter()
         assert router.get_required_fields("unknown") == []
 
+    def test_drought_fields_present(self):
+        router = FeatureRouter()
+        readings = [
+            {"rainfall_mm": 5.0, "soil_moisture_pct": 40.0, "temperature_c": 32.0},
+            {"rainfall_mm": 3.0, "soil_moisture_pct": 35.0, "temperature_c": 34.0},
+        ]
+        routed = router.route("drought", readings, "r1")
+        assert len(routed) == 2
+        for row in routed:
+            assert "rainfall_deficit_mm" in row
+            assert "soil_moisture_trend" in row
+            assert "temperature_anomaly_c" in row
+            assert "rolling_window_days" in row
+
+    def test_drought_rolling_window_days_default(self):
+        router = FeatureRouter()
+        readings = [{"rainfall_mm": 10.0, "soil_moisture_pct": 50.0, "temperature_c": 25.0}]
+        routed = router.route("drought", readings, "r1")
+        assert routed[0]["rolling_window_days"] == 30.0
+
+    def test_drought_rolling_window_days_configurable(self):
+        router = FeatureRouter(rolling_window_days=14)
+        readings = [{"rainfall_mm": 10.0, "soil_moisture_pct": 50.0, "temperature_c": 25.0}]
+        routed = router.route("drought", readings, "r1")
+        assert routed[0]["rolling_window_days"] == 14.0
+
+    def test_drought_rainfall_deficit_below_average(self):
+        # rainfall_mm=2 is below rolling avg of 10 → deficit = -2
+        router = FeatureRouter()
+        readings = [{"rainfall_mm": 10.0}, {"rainfall_mm": 10.0}, {"rainfall_mm": 2.0}]
+        routed = router.route("drought", readings, "r1")
+        # rolling avg ≈ 7.33; last reading (2.0) is below avg → deficit = -2.0
+        assert routed[2]["rainfall_deficit_mm"] < 0.0
+
+    def test_drought_rainfall_deficit_above_average(self):
+        # rainfall_mm=20 is above rolling avg → deficit = 0
+        router = FeatureRouter()
+        readings = [{"rainfall_mm": 5.0}, {"rainfall_mm": 5.0}, {"rainfall_mm": 20.0}]
+        routed = router.route("drought", readings, "r1")
+        assert routed[2]["rainfall_deficit_mm"] == 0.0
+
+    def test_drought_soil_moisture_trend(self):
+        router = FeatureRouter()
+        readings = [
+            {"rainfall_mm": 5.0, "soil_moisture_pct": 40.0, "temperature_c": 25.0},
+            {"rainfall_mm": 5.0, "soil_moisture_pct": 35.0, "temperature_c": 25.0},
+        ]
+        routed = router.route("drought", readings, "r1")
+        assert routed[0]["soil_moisture_trend"] == 0.0   # first reading: no previous
+        assert routed[1]["soil_moisture_trend"] == -5.0  # 35 - 40
+
+    def test_drought_temperature_anomaly(self):
+        router = FeatureRouter()
+        readings = [
+            {"rainfall_mm": 5.0, "soil_moisture_pct": 50.0, "temperature_c": 20.0},
+            {"rainfall_mm": 5.0, "soil_moisture_pct": 50.0, "temperature_c": 30.0},
+        ]
+        routed = router.route("drought", readings, "r1")
+        # rolling mean = 25; anomalies = -5 and +5
+        assert routed[0]["temperature_anomaly_c"] == pytest.approx(-5.0)
+        assert routed[1]["temperature_anomaly_c"] == pytest.approx(5.0)
+
+    def test_landslide_fields_present(self):
+        router = FeatureRouter(
+            terrain_data={"r1": {"elevation_gradient": 0.3, "terrain_slope": 25.0}}
+        )
+        routed = router.route("landslide", self._make_readings(), "r1")
+        assert len(routed) == 1
+        row = routed[0]
+        assert "rainfall_intensity_mm" in row
+        assert "soil_moisture_pct" in row
+        assert "elevation_gradient" in row
+        assert "terrain_slope" in row
+
+    def test_landslide_rainfall_intensity_equals_rainfall_mm(self):
+        router = FeatureRouter()
+        readings = [{"rainfall_mm": 18.5, "soil_moisture_pct": 60.0}]
+        routed = router.route("landslide", readings, "r1")
+        assert routed[0]["rainfall_intensity_mm"] == 18.5
+
+    def test_landslide_terrain_defaults_to_zero(self):
+        router = FeatureRouter()
+        routed = router.route("landslide", self._make_readings(), "unknown_region")
+        assert routed[0]["elevation_gradient"] == 0.0
+        assert routed[0]["terrain_slope"] == 0.0
+
+    def test_cyclone_fields_present(self):
+        router = FeatureRouter()
+        routed = router.route("cyclone", self._make_readings(), "r1")
+        assert len(routed) == 1
+        row = routed[0]
+        assert "wind_speed_kmh" in row
+        assert "wind_direction_deg" in row
+        assert "sea_surface_temp_c" in row
+        assert "cloud_density" in row
+
+    def test_cyclone_sea_surface_temp_defaults_to_zero(self):
+        router = FeatureRouter()
+        readings = [{"wind_speed_kmh": 120.0, "wind_direction_deg": 90.0}]
+        routed = router.route("cyclone", readings, "r1")
+        assert routed[0]["sea_surface_temp_c"] == 0.0
+
+    def test_cyclone_cloud_density_defaults_to_zero(self):
+        router = FeatureRouter()
+        readings = [{"wind_speed_kmh": 120.0, "wind_direction_deg": 90.0}]
+        routed = router.route("cyclone", readings, "r1")
+        assert routed[0]["cloud_density"] == 0.0
+
+    def test_all_five_disaster_types_have_fields(self):
+        from engine.feature_router import DISASTER_FIELDS
+        for dtype in ["flood", "heatwave", "drought", "landslide", "cyclone"]:
+            assert dtype in DISASTER_FIELDS
+            assert len(DISASTER_FIELDS[dtype]) > 0
+
 
 # ---------------------------------------------------------------------------
 # PredictionRecord tests

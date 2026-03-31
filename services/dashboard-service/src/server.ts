@@ -5,6 +5,7 @@ import http from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import regionsRouter from './routes/regions';
 import predictionsRouter from './routes/predictions';
+import historyRouter from './routes/history';
 
 export interface AppServer {
   httpServer: http.Server;
@@ -25,6 +26,7 @@ export function createServer(): AppServer {
   // API routes
   app.use('/api/regions', regionsRouter);
   app.use('/api/predictions', predictionsRouter);
+  app.use('/api/history', historyRouter);
 
   // Fallback: serve index.html for any non-API route (SPA routing)
   app.get('*', (_req, res) => {

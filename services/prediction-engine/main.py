@@ -30,7 +30,7 @@ INFLUXDB_ORG = os.getenv("INFLUXDB_ORG", "disaster_org")
 PREDICTION_INTERVAL_SECONDS = int(os.getenv("PREDICTION_INTERVAL_SECONDS", "3600"))
 MODEL_VERSION = os.getenv("MODEL_VERSION", "1.0.0")
 
-SUPPORTED_DISASTER_TYPES = ["flood", "heatwave"]
+SUPPORTED_DISASTER_TYPES = ["flood", "heatwave", "drought", "landslide", "cyclone"]
 FORECAST_HORIZONS = [6, 24, 72]
 
 

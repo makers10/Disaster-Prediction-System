@@ -14,7 +14,7 @@ from typing import Any, Callable, Deque, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 WINDOW_SIZE = 24  # keep last 24 readings per region
-SUPPORTED_DISASTER_TYPES = ["flood", "heatwave"]
+SUPPORTED_DISASTER_TYPES = ["flood", "heatwave", "drought", "landslide", "cyclone"]
 FORECAST_HORIZONS = [6, 24, 72]
 
 
