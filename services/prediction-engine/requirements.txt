@@ -1,0 +1,5 @@
+kafka-python>=2.0.2
+psycopg2-binary>=2.9.9
+influxdb-client>=1.38.0
+numpy>=1.26.0
+python-dotenv>=1.0.0

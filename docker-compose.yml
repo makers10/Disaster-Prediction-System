@@ -1,0 +1,119 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo ruok | nc localhost 2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    command: |
+      "
+      echo 'Creating Kafka topics...'
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic raw.sensor.reading --partitions 6 --replication-factor 1 --config retention.ms=604800000
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic raw.weather.forecast --partitions 3 --replication-factor 1 --config retention.ms=604800000
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic validated.sensor.reading --partitions 6 --replication-factor 1 --config retention.ms=604800000
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic prediction.generated --partitions 6 --replication-factor 1 --config retention.ms=604800000
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic alert.dispatched --partitions 3 --replication-factor 1 --config retention.ms=604800000
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic features.satellite.cnn --partitions 3 --replication-factor 1 --config retention.ms=604800000
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic crowd.report.submitted --partitions 3 --replication-factor 1 --config retention.ms=604800000
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic evacuation.route.updated --partitions 3 --replication-factor 1 --config retention.ms=604800000
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic satellite.feed.unavailable --partitions 1 --replication-factor 1 --config retention.ms=604800000
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic crowd.report.threshold.exceeded --partitions 3 --replication-factor 1 --config retention.ms=604800000
+      echo 'All topics created.'
+      kafka-topics --bootstrap-server kafka:29092 --list
+      "
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_USER: disaster_user
+      POSTGRES_PASSWORD: disaster_pass
+      POSTGRES_DB: disaster_prediction
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U disaster_user -d disaster_prediction"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  influxdb:
+    image: influxdb:2.7
+    container_name: influxdb
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: adminpassword
+      DOCKER_INFLUXDB_INIT_ORG: disaster-org
+      DOCKER_INFLUXDB_INIT_BUCKET: predictions
+      DOCKER_INFLUXDB_INIT_RETENTION: 30d
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  influxdb_data:
+  redis_data:

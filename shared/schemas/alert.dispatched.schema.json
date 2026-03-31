@@ -1,0 +1,24 @@
+﻿{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "alert.dispatched",
+  "title": "Alert Dispatched",
+  "description": "Schema for alert record payloads published to the alert.dispatched Kafka topic",
+  "type": "object",
+  "required": ["alert_id", "prediction_id", "region_id", "disaster_type", "risk_level", "time_to_impact_h", "recommended_action", "language_code", "channel", "dispatched_at", "delivery_status", "retry_count"],
+  "properties": {
+    "alert_id": { "type": "string", "format": "uuid" },
+    "prediction_id": { "type": "string", "format": "uuid" },
+    "region_id": { "type": "string" },
+    "disaster_type": { "type": "string" },
+    "risk_level": { "type": "string", "enum": ["Medium", "High"] },
+    "time_to_impact_h": { "type": "number", "minimum": 0 },
+    "recommended_action": { "type": "string" },
+    "evacuation_route_id": { "type": ["string", "null"] },
+    "language_code": { "type": "string" },
+    "channel": { "type": "string", "enum": ["sms", "push", "voice"] },
+    "dispatched_at": { "type": "string", "format": "date-time" },
+    "delivery_status": { "type": "string", "enum": ["sent", "delivered", "failed"] },
+    "retry_count": { "type": "integer", "minimum": 0, "maximum": 3 }
+  },
+  "additionalProperties": false
+}

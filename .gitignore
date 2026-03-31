@@ -1,0 +1,6 @@
+.kiro
+.vscodegit
+node_modules/
+.env
+dist/
+build/

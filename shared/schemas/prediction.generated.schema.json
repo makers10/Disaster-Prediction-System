@@ -1,0 +1,22 @@
+﻿{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "prediction.generated",
+  "title": "Prediction Generated",
+  "description": "Schema for prediction record payloads published to the prediction.generated Kafka topic",
+  "type": "object",
+  "required": ["prediction_id", "region_id", "disaster_type", "forecast_horizon_h", "risk_level", "probability_pct", "severity_index", "generated_at", "model_version", "input_data_snapshot_id"],
+  "properties": {
+    "prediction_id": { "type": "string", "format": "uuid" },
+    "region_id": { "type": "string" },
+    "disaster_type": { "type": "string", "enum": ["flood", "heatwave", "drought", "landslide", "cyclone"] },
+    "forecast_horizon_h": { "type": "integer", "enum": [6, 24, 72] },
+    "risk_level": { "type": "string", "enum": ["Low", "Medium", "High"] },
+    "probability_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+    "time_to_impact_h": { "type": ["number", "null"], "minimum": 0 },
+    "severity_index": { "type": "number", "minimum": 0, "maximum": 100 },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "model_version": { "type": "string" },
+    "input_data_snapshot_id": { "type": "string" }
+  },
+  "additionalProperties": false
+}

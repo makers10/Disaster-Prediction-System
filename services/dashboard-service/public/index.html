@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Disaster Prediction — Live Risk Map</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #222; }
+    header { background: #1a1a2e; color: #fff; padding: 12px 24px; display: flex; align-items: center; gap: 16px; }
+    header h1 { font-size: 1.2rem; }
+    .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
+    .badge-High   { background: #e53e3e; color: #fff; }
+    .badge-Medium { background: #d69e2e; color: #fff; }
+    .badge-Low    { background: #38a169; color: #fff; }
+    .container { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+    .toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+    .toolbar label { font-size: 0.9rem; font-weight: 500; }
+    .toolbar select { padding: 6px 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 0.9rem; }
+    .status { font-size: 0.8rem; color: #666; margin-left: auto; }
+    .status.live { color: #38a169; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+    th { background: #edf2f7; text-align: left; padding: 10px 14px; font-size: 0.85rem; color: #555; }
+    td { padding: 10px 14px; border-top: 1px solid #eee; font-size: 0.9rem; }
+    tr:hover td { background: #f7fafc; cursor: pointer; }
+    .panel { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.1); padding: 20px; margin-top: 24px; }
+    .panel h2 { font-size: 1rem; margin-bottom: 14px; }
+    .panel table th, .panel table td { font-size: 0.85rem; }
+    .close-btn { float: right; background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #888; }
+    .loading { text-align: center; padding: 40px; color: #888; }
+    .error { color: #e53e3e; padding: 12px; background: #fff5f5; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useCallback, useRef } = React;
+
+    const DISASTER_TYPES = ['flood', 'heatwave', 'drought', 'landslide', 'cyclone'];
+
+    function RiskBadge({ level }) {
+      return <span className={`badge badge-${level}`}>{level}</span>;
+    }
+
+    function RegionTable({ regions, onSelect }) {
+      if (!regions) return <div className="loading">Loading regions…</div>;
+      if (regions.length === 0) return <div className="loading">No regions found.</div>;
+      return (
+        <table>
+          <thead>
+            <tr>
+              <th>Region</th>
+              <th>Risk Level</th>
+              <th>Color</th>
+              <th>Last Prediction</th>
+            </tr>
+          </thead>
+          <tbody>
+            {regions.map(r => (
+              <tr key={r.region_id} onClick={() => onSelect(r.region_id)}>
+                <td>{r.region_id}</td>
+                <td><RiskBadge level={r.risk_level} /></td>
+                <td>{r.color}</td>
+                <td>{r.last_prediction_at ? new Date(r.last_prediction_at).toLocaleString() : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      );
+    }
+
+    function RegionDetail({ regionId, onClose }) {
+      const [detail, setDetail] = useState(null);
+      const [error, setError] = useState(null);
+
+      useEffect(() => {
+        if (!regionId) return;
+        setDetail(null);
+        setError(null);
+        fetch(`/api/regions/${encodeURIComponent(regionId)}`)
+          .then(r => r.ok ? r.json() : Promise.reject(r.statusText))
+          .then(setDetail)
+          .catch(e => setError(String(e)));
+      }, [regionId]);
+
+      return (
+        <div className="panel">
+          <button className="close-btn" onClick={onClose}>✕</button>
+          <h2>Region: {regionId}</h2>
+          {error && <div className="error">{error}</div>}
+          {!detail && !error && <div className="loading">Loading…</div>}
+          {detail && (
+            <table>
+              <thead>
+                <tr>
+                  <th>Disaster Type</th>
+                  <th>Risk Level</th>
+                  <th>Probability %</th>
+                  <th>Time to Impact (h)</th>
+                  <th>Severity Index</th>
+                  <th>Generated At</th>
+                </tr>
+              </thead>
+              <tbody>
+                {detail.disaster_types.map(d => (
+                  <tr key={d.disaster_type}>
+                    <td>{d.disaster_type}</td>
+                    <td><RiskBadge level={d.risk_level} /></td>
+                    <td>{d.probability_pct != null ? `${d.probability_pct}%` : '—'}</td>
+                    <td>{d.time_to_impact_h != null ? d.time_to_impact_h : '—'}</td>
+                    <td>{d.severity_index != null ? d.severity_index : '—'}</td>
+                    <td>{d.generated_at ? new Date(d.generated_at).toLocaleString() : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      );
+    }
+
+    function App() {
+      const [regions, setRegions] = useState(null);
+      const [disasterFilter, setDisasterFilter] = useState('');
+      const [selectedRegion, setSelectedRegion] = useState(null);
+      const [wsStatus, setWsStatus] = useState('connecting');
+      const [error, setError] = useState(null);
+      const wsRef = useRef(null);
+
+      const fetchRegions = useCallback((filter) => {
+        const url = filter ? `/api/regions?disaster_type=${encodeURIComponent(filter)}` : '/api/regions';
+        fetch(url)
+          .then(r => r.ok ? r.json() : Promise.reject(r.statusText))
+          .then(data => { setRegions(data); setError(null); })
+          .catch(e => setError(String(e)));
+      }, []);
+
+      useEffect(() => {
+        fetchRegions(disasterFilter);
+      }, [disasterFilter, fetchRegions]);
+
+      useEffect(() => {
+        const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+        const ws = new WebSocket(`${proto}://${location.host}`);
+        wsRef.current = ws;
+
+        ws.onopen = () => setWsStatus('live');
+        ws.onclose = () => setWsStatus('disconnected');
+        ws.onerror = () => setWsStatus('error');
+        ws.onmessage = (evt) => {
+          try {
+            const msg = JSON.parse(evt.data);
+            if (msg.type === 'prediction.generated') {
+              fetchRegions(disasterFilter);
+            }
+          } catch {}
+        };
+
+        return () => ws.close();
+      }, []);
+
+      // Re-subscribe to filter changes for WS-triggered refetch
+      const disasterFilterRef = useRef(disasterFilter);
+      useEffect(() => { disasterFilterRef.current = disasterFilter; }, [disasterFilter]);
+
+      return (
+        <div>
+          <header>
+            <h1>🌍 Disaster Prediction — Live Risk Map</h1>
+            <span className={`status ${wsStatus === 'live' ? 'live' : ''}`}>
+              ● {wsStatus === 'live' ? 'Live' : wsStatus}
+            </span>
+          </header>
+          <div className="container">
+            <div className="toolbar">
+              <label htmlFor="filter">Filter by disaster type:</label>
+              <select
+                id="filter"
+                value={disasterFilter}
+                onChange={e => setDisasterFilter(e.target.value)}
+              >
+                <option value="">All types</option>
+                {DISASTER_TYPES.map(t => (
+                  <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                ))}
+              </select>
+              <button onClick={() => fetchRegions(disasterFilter)} style={{padding:'6px 14px',borderRadius:'6px',border:'1px solid #ccc',cursor:'pointer'}}>
+                Refresh
+              </button>
+            </div>
+
+            {error && <div className="error" style={{marginBottom:12}}>{error}</div>}
+
+            <RegionTable regions={regions} onSelect={setSelectedRegion} />
+
+            {selectedRegion && (
+              <RegionDetail
+                regionId={selectedRegion}
+                onClose={() => setSelectedRegion(null)}
+              />
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>

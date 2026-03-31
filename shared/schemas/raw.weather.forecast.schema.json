@@ -1,0 +1,20 @@
+﻿{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "raw.weather.forecast",
+  "title": "Raw Weather Forecast",
+  "description": "Schema for raw weather forecast payloads published to the raw.weather.forecast Kafka topic",
+  "type": "object",
+  "required": ["forecast_id", "region_id", "fetched_at", "provider"],
+  "properties": {
+    "forecast_id": { "type": "string" },
+    "region_id": { "type": "string" },
+    "fetched_at": { "type": "string", "format": "date-time" },
+    "provider": { "type": "string" },
+    "precipitation_probability_pct": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+    "temperature_c": { "type": ["number", "null"], "minimum": -90, "maximum": 60 },
+    "wind_speed_kmh": { "type": ["number", "null"], "minimum": 0 },
+    "wind_direction_deg": { "type": ["number", "null"], "minimum": 0, "maximum": 360 },
+    "forecast_horizon_h": { "type": "integer", "enum": [6, 24, 72] }
+  },
+  "additionalProperties": false
+}
