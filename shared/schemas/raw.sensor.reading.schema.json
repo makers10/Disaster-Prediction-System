@@ -1,22 +1,2 @@
-﻿{
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "raw.sensor.reading",
-  "title": "Raw Sensor Reading",
-  "description": "Schema for raw sensor reading payloads published to the raw.sensor.reading Kafka topic",
-  "type": "object",
-  "required": ["sensor_id", "region_id", "timestamp", "stream_status"],
-  "properties": {
-    "sensor_id": { "type": "string" },
-    "region_id": { "type": "string" },
-    "timestamp": { "type": "string", "format": "date-time" },
-    "rainfall_mm": { "type": ["number", "null"], "minimum": 0 },
-    "temperature_c": { "type": ["number", "null"], "minimum": -90, "maximum": 60 },
-    "river_level_m": { "type": ["number", "null"], "minimum": 0 },
-    "soil_moisture_pct": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
-    "wind_speed_kmh": { "type": ["number", "null"], "minimum": 0 },
-    "wind_direction_deg": { "type": ["number", "null"], "minimum": 0, "maximum": 360 },
-    "is_anomalous": { "type": "boolean" },
-    "stream_status": { "type": "string", "enum": ["ok", "degraded", "unavailable"] }
-  },
-  "additionalProperties": false
-}
+{
+  

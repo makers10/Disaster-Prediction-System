@@ -1,6 +1,30 @@
 # Disaster Prediction System
 
-An AI-powered, event-driven platform that ingests multi-source environmental data to predict floods, heatwaves, droughts, landslides, and cyclones. It delivers risk assessments, probabilistic forecasts, and time-to-impact estimates to citizens, governments, and emergency responders through alerts, dashboards, and a conversational AI interface.
+An AI-powered, event-driven platform that ingests multi-source environmental data to predict floods, heatwaves, droughts, landslides, and cyclones.
+
+## 🚀 Quick Demo (No database required)
+
+Run the full demo locally with a single command — no database, no Kafka, no external services:
+
+```bash
+python demo/server.py
+```
+
+Then open **http://localhost:8000** in your browser.
+
+The demo includes:
+- Live risk map with color-coded regions (Red/Yellow/Green)
+- AI Assistant — ask natural language questions about disaster risk
+- Crowd reporting — submit disaster observations
+- Historical analysis — accuracy metrics and event timeline
+- XAI explanations — see why each prediction was made
+- Auto-refreshing predictions every 60 seconds
+
+**Requirements:** Python 3.8+ (standard library only, no pip install needed)
+
+---
+
+## Full Production Stack
 
 ## Architecture
 

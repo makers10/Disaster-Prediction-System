@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Disaster Prediction System — India</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+/* ── Reset & Base ─────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;font-size:15px}
+/* ── Header ──────────────────────────────────────────────── */
+.hdr{background:linear-gradient(135deg,#1e3a5f 0%,#1e293b 100%);border-bottom:1px solid #334155;padding:0 28px;height:68px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:1000}
+.hdr-logo{font-size:2rem;line-height:1}
+.hdr-text h1{font-size:1.2rem;font-weight:700;color:#f8fafc;letter-spacing:-.3px}
+.hdr-text p{font-size:.78rem;color:#94a3b8;margin-top:2px}
+.live-pill{margin-left:auto;background:#052e16;border:1px solid #166534;border-radius:24px;padding:6px 14px;font-size:.78rem;color:#4ade80;display:flex;align-items:center;gap:6px;font-weight:600}
+.pulse{width:8px;height:8px;border-radius:50%;background:#4ade80;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.85)}}
+/* ── Nav ─────────────────────────────────────────────────── */
+.nav{background:#1e293b;border-bottom:1px solid #334155;display:flex;padding:0 28px;gap:4px}
+.ntab{padding:14px 20px;background:none;border:none;border-bottom:3px solid transparent;color:#94a3b8;font-size:.9rem;font-weight:500;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:7px}
+.ntab:hover{color:#e2e8f0}
+.ntab.on{color:#38bdf8;border-bottom-color:#38bdf8}
+/* ── Page ────────────────────────────────────────────────── */
+.pg{max-width:1440px;margin:0 auto;padding:24px 24px}
+/* ── Stat Cards ──────────────────────────────────────────── */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.scard{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:20px 22px;display:flex;align-items:center;gap:16px;transition:border-color .2s}
+.scard:hover{border-color:#475569}
+.sicon{width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0}
+.sval{font-size:2rem;font-weight:800;line-height:1;letter-spacing:-1px}
+.slbl{font-size:.8rem;color:#94a3b8;margin-top:4px;font-weight:500}
+/* ── Map Layout ──────────────────────────────────────────── */
+.map-layout{display:grid;grid-template-columns:1fr 420px;gap:18px;align-items:start}
+/* ── Cards ───────────────────────────────────────────────── */
+.card{background:#1e293b;border:1px solid #334155;border-radius:14px;overflow:hidden}
+.card-hdr{padding:16px 20px;border-bottom:1px solid #334155;display:flex;align-items:center;justify-content:space-between}
+.card-hdr h2{font-size:1rem;font-weight:700;color:#f1f5f9;display:flex;align-items:center;gap:8px}
+.card-hdr .sub{font-size:.75rem;color:#64748b;margin-top:2px}
+/* ── Map ─────────────────────────────────────────────────── */
+#imap{height:520px;width:100%}
+.leaflet-container{background:#0c1929!important}
+.map-footer{padding:10px 18px;border-top:1px solid #334155;display:flex;gap:18px;align-items:center;font-size:.78rem;color:#64748b}
+.leg-dot{width:11px;height:11px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:middle}
+/* ── Detail Panel ────────────────────────────────────────── */
+.detail-panel{background:#1e293b;border:1px solid #334155;border-radius:14px;overflow:hidden;position:sticky;top:88px}
+.dp-empty{padding:60px 20px;text-align:center;color:#475569}
+.dp-empty .icon{font-size:3rem;margin-bottom:12px}
+.dp-empty p{font-size:.9rem;line-height:1.7;color:#64748b}
+.dp-body{padding:18px;max-height:calc(100vh - 200px);overflow-y:auto}
+/* ── Sensor Grid ─────────────────────────────────────────── */
+.sensor-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:18px}
+.sensor-chip{background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px 12px}
+.sensor-chip .s-icon{font-size:1.1rem;margin-bottom:4px}
+.sensor-chip .s-val{font-size:1.1rem;font-weight:700;color:#f1f5f9;line-height:1}
+.sensor-chip .s-lbl{font-size:.7rem;color:#64748b;margin-top:3px}
+/* ── Risk Table ──────────────────────────────────────────── */
+.section-title{font-size:.72rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px}
+.risk-rows{display:flex;flex-direction:column;gap:6px;margin-bottom:18px}
+.risk-row{background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px}
+.risk-row .dtype{font-size:.88rem;font-weight:600;color:#e2e8f0;text-transform:capitalize;width:80px;flex-shrink:0}
+.risk-row .badge{flex-shrink:0}
+.risk-row .prob-wrap{flex:1;display:flex;align-items:center;gap:8px}
+.prob-track{flex:1;height:6px;background:#1e293b;border-radius:3px;overflow:hidden}
+.prob-fill{height:100%;border-radius:3px;transition:width .5s ease}
+.prob-pct{font-size:.82rem;font-weight:700;color:#e2e8f0;width:38px;text-align:right;flex-shrink:0}
+.tti{font-size:.75rem;color:#94a3b8;width:44px;text-align:right;flex-shrink:0}
+/* ── Badges ──────────────────────────────────────────────── */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:700;letter-spacing:.3px;white-space:nowrap}
+.badge-High{background:rgba(239,68,68,.18);color:#fca5a5;border:1px solid rgba(239,68,68,.35)}
+.badge-Medium{background:rgba(245,158,11,.18);color:#fcd34d;border:1px solid rgba(245,158,11,.35)}
+.badge-Low{background:rgba(34,197,94,.18);color:#86efac;border:1px solid rgba(34,197,94,.35)}
+/* ── XAI ─────────────────────────────────────────────────── */
+.xai-card{background:#0f172a;border:1px solid #334155;border-radius:10px;padding:14px;margin-bottom:6px}
+.xai-summary{font-size:.85rem;color:#cbd5e1;font-style:italic;line-height:1.6;margin-bottom:14px;padding-left:10px;border-left:3px solid #38bdf8}
+.xai-factor{margin-bottom:10px}
+.xai-factor-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.xai-factor-name{font-size:.82rem;color:#cbd5e1;text-transform:capitalize}
+.xai-factor-pct{font-size:.82rem;font-weight:700;color:#38bdf8}
+.xai-bar-bg{height:6px;background:#1e293b;border-radius:3px}
+.xai-bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#38bdf8,#818cf8);transition:width .6s ease}
+/* ── Filter controls ─────────────────────────────────────── */
+.ctrl-row{display:flex;gap:8px;align-items:center}
+.fsel{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:6px 11px;color:#cbd5e1;font-size:.82rem;cursor:pointer;outline:none}
+.fsel:focus{border-color:#38bdf8}
+.rbtn{background:#334155;border:none;border-radius:8px;padding:6px 12px;color:#cbd5e1;font-size:.82rem;cursor:pointer;transition:background .2s}
+.rbtn:hover{background:#475569}
+.xbtn{background:none;border:none;color:#64748b;cursor:pointer;font-size:1rem;padding:3px 7px;border-radius:5px;transition:all .2s}
+.xbtn:hover{background:#334155;color:#e2e8f0}
+/* ── Chat ────────────────────────────────────────────────── */
+.chat-wrap{background:#1e293b;border:1px solid #334155;border-radius:14px;overflow:hidden}
+.chat-msgs{height:400px;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:12px}
+.msg{padding:12px 16px;border-radius:12px;max-width:84%;font-size:.9rem;line-height:1.6}
+.msg.u{background:#1d4ed8;color:#fff;align-self:flex-end;border-radius:12px 12px 3px 12px}
+.msg.b{background:#334155;color:#e2e8f0;align-self:flex-start;border-radius:12px 12px 12px 3px}
+.msg .it{font-size:.7rem;color:#94a3b8;margin-top:5px}
+.quick-row{display:flex;gap:7px;flex-wrap:wrap;padding:10px 16px;border-top:1px solid #334155}
+.qpill{background:#0f172a;border:1px solid #334155;border-radius:20px;padding:5px 13px;font-size:.75rem;color:#94a3b8;cursor:pointer;transition:all .2s;white-space:nowrap}
+.qpill:hover{border-color:#38bdf8;color:#38bdf8}
+.chat-in{display:flex;gap:8px;padding:12px 16px;border-top:1px solid #334155}
+.chat-in input{flex:1;background:#0f172a;border:1px solid #334155;border-radius:9px;padding:11px 15px;color:#e2e8f0;font-size:.9rem;outline:none;transition:border-color .2s}
+.chat-in input:focus{border-color:#38bdf8}
+.chat-in button{background:#1d4ed8;color:#fff;border:none;border-radius:9px;padding:11px 20px;cursor:pointer;font-size:.9rem;font-weight:600;transition:background .2s}
+.chat-in button:hover{background:#2563eb}
+/* ── Crowd ───────────────────────────────────────────────── */
+.form-card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:20px;margin-bottom:20px}
+.form-card h3{font-size:.95rem;font-weight:700;color:#f1f5f9;margin-bottom:14px}
+.form-row{display:grid;grid-template-columns:1fr 1fr 2fr auto;gap:10px;align-items:end}
+.ff label{display:block;font-size:.75rem;color:#94a3b8;margin-bottom:5px;font-weight:500}
+.ff select,.ff input{width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:9px 13px;color:#e2e8f0;font-size:.88rem;outline:none;transition:border-color .2s}
+.ff select:focus,.ff input:focus{border-color:#38bdf8}
+.sbtn{background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:10px 18px;cursor:pointer;font-size:.88rem;font-weight:600;white-space:nowrap;transition:background .2s}
+.sbtn:hover{background:#2563eb}
+.report-item{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:13px 16px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start}
+.rdot{width:10px;height:10px;border-radius:50%;margin-top:5px;flex-shrink:0}
+.report-item .rtype{font-size:.9rem;font-weight:700;color:#f1f5f9;text-transform:capitalize}
+.report-item .rloc{font-size:.8rem;color:#94a3b8}
+.report-item .rdesc{font-size:.82rem;color:#cbd5e1;margin-top:4px}
+.report-item .rtime{font-size:.72rem;color:#475569;margin-top:4px}
+/* ── History ─────────────────────────────────────────────── */
+.hist-card{background:#1e293b;border:1px solid #334155;border-radius:14px;overflow:hidden;margin-bottom:20px}
+.hist-hdr{padding:16px 20px;border-bottom:1px solid #334155}
+.hist-hdr h2{font-size:1rem;font-weight:700;color:#f1f5f9}
+.hist-body{padding:0}
+.htable{width:100%;border-collapse:collapse}
+.htable th{font-size:.75rem;color:#64748b;padding:10px 16px;text-align:left;border-bottom:1px solid #334155;font-weight:600;background:#0f172a;text-transform:uppercase;letter-spacing:.5px}
+.htable td{font-size:.88rem;padding:11px 16px;border-bottom:1px solid rgba(51,65,85,.4);color:#cbd5e1}
+.htable tr:last-child td{border-bottom:none}
+.htable tr:hover td{background:rgba(15,23,42,.5)}
+.pbar-wrap{display:flex;align-items:center;gap:10px}
+.pbar-track{flex:1;height:7px;background:#0f172a;border-radius:4px;overflow:hidden;min-width:60px}
+.pbar-fill{height:100%;border-radius:4px}
+.pbar-val{font-size:.82rem;font-weight:700;color:#e2e8f0;width:42px;text-align:right}
+/* ── Scrollbar ───────────────────────────────────────────── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
+/* ── Responsive ──────────────────────────────────────────── */
+@media(max-width:1024px){.map-layout{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.form-row{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.stats{grid-template-columns:1fr 1fr}.sensor-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useCallback,useRef} = React;
+const API = '';
+const DT = ['flood','heatwave','drought','landslide','cyclone'];
+const RC = {High:'#ef4444', Medium:'#f59e0b', Low:'#22c55e'};
+const DT_ICON = {flood:'🌊',heatwave:'🔥',drought:'🌵',landslide:'⛰️',cyclone:'🌪️'};
+
+function Badge({l}){
+  return <span className={`badge badge-${l}`}>
+    <span style={{width:6,height:6,borderRadius:'50%',background:RC[l],display:'inline-block'}}/>
+    {l}
+  </span>;
+}
+
+// ── India Map ──────────────────────────────────────────────
+function IndiaMap({regions, districts, onSelect, onSelectDistrict, selected, selectedDistrict, showDistricts}){
+  const mapRef = useRef(null);
+  const mkRef = useRef({});
+  const dmkRef = useRef({});
+
+  useEffect(()=>{
+    if(mapRef.current) return;
+    const m = L.map('imap',{center:[22,82],zoom:5,zoomControl:true,attributionControl:false});
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:18,subdomains:'abcd'}).addTo(m);
+    mapRef.current = m;
+  },[]);
+
+  // City markers
+  useEffect(()=>{
+    const m = mapRef.current;
+    if(!m || !regions.length) return;
+    Object.values(mkRef.current).forEach(mk=>mk.remove());
+    mkRef.current = {};
+    regions.forEach(r=>{
+      const c = RC[r.risk_level];
+      const sel = selected === r.region_id;
+      const sz = sel ? 24 : 17;
+      const icon = L.divIcon({
+        className:'',
+        html:`<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${c};border:${sel?'3px solid #fff':'2px solid rgba(255,255,255,.45)'};box-shadow:0 0 ${sel?'20px 8px':'12px 4px'} ${c}aa;cursor:pointer;transition:all .25s"></div>`,
+        iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]
+      });
+      const mk = L.marker([r.lat,r.lon],{icon}).addTo(m).on('click',()=>onSelect(r.region_id));
+      mk.bindTooltip(`
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px;font-family:system-ui;min-width:150px">
+          <div style="font-weight:700;font-size:.95rem;color:#f1f5f9;margin-bottom:5px">🏙 ${r.name}</div>
+          <div style="font-size:.8rem;color:${c};font-weight:700">${r.risk_level} Risk</div>
+          <div style="font-size:.72rem;color:#64748b;margin-top:3px">Click to view details →</div>
+        </div>`,
+        {permanent:false,direction:'top',offset:[0,-10],opacity:1,className:''}
+      );
+      mkRef.current[r.region_id] = mk;
+    });
+  },[regions,selected,onSelect]);
+
+  // District markers (smaller diamonds)
+  useEffect(()=>{
+    const m = mapRef.current;
+    if(!m) return;
+    Object.values(dmkRef.current).forEach(mk=>mk.remove());
+    dmkRef.current = {};
+    if(!showDistricts || !districts.length) return;
+    districts.forEach(d=>{
+      const c = RC[d.risk_level];
+      const sel = selectedDistrict === d.district_id;
+      const sz = sel ? 14 : 10;
+      const icon = L.divIcon({
+        className:'',
+        html:`<div style="width:${sz}px;height:${sz}px;background:${c};border:${sel?'2px solid #fff':'1px solid rgba(255,255,255,.5)'};box-shadow:0 0 ${sel?'10px 4px':'6px 2px'} ${c}88;cursor:pointer;transform:rotate(45deg);transition:all .2s"></div>`,
+        iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]
+      });
+      const mk = L.marker([d.lat,d.lon],{icon}).addTo(m).on('click',()=>onSelectDistrict(d.district_id));
+      mk.bindTooltip(`
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:8px 12px;font-family:system-ui;min-width:130px">
+          <div style="font-weight:700;font-size:.85rem;color:#f1f5f9;margin-bottom:3px">📍 ${d.name}</div>
+          <div style="font-size:.75rem;color:${c};font-weight:600">${d.risk_level} Risk</div>
+          <div style="font-size:.68rem;color:#64748b;margin-top:2px">District · Click for details</div>
+        </div>`,
+        {permanent:false,direction:'top',offset:[0,-8],opacity:1,className:''}
+      );
+      dmkRef.current[d.district_id] = mk;
+    });
+  },[districts,showDistricts,selectedDistrict,onSelectDistrict]);
+
+  return <div id="imap"/>;
+}
+
+// ── Detail Panel ───────────────────────────────────────────
+function DetailPanel({rid, did, regions, onClose}){
+  const [det,setDet] = useState(null);
+  const [sen,setSen] = useState(null);
+  const [xai,setXai] = useState(null);
+  const [xt,setXt] = useState('flood');
+  const isDistrict = !!did && !rid;
+  const activeId = did || rid;
+  const reg = regions.find(r=>r.region_id===rid);
+
+  useEffect(()=>{
+    if(!activeId) return;
+    setDet(null); setSen(null); setXai(null);
+    if(isDistrict){
+      fetch(`${API}/api/districts/${activeId}`).then(r=>r.json()).then(d=>{
+        setDet(d);
+        setSen(d.sensor||null);
+      });
+    } else {
+      fetch(`${API}/api/regions/${activeId}`).then(r=>r.json()).then(setDet);
+      fetch(`${API}/api/sensors?region_id=${activeId}`).then(r=>r.json()).then(setSen);
+    }
+  },[activeId,isDistrict]);
+
+  useEffect(()=>{
+    if(!activeId) return;
+    const endpoint = isDistrict
+      ? `${API}/api/xai?region_id=${activeId}&disaster_type=${xt}`
+      : `${API}/api/xai?region_id=${activeId}&disaster_type=${xt}`;
+    fetch(endpoint).then(r=>r.json()).then(setXai);
+  },[activeId,xt,isDistrict]);
+
+  if(!activeId) return(
+    <div className="detail-panel">
+      <div className="card-hdr"><h2>📍 Region Details</h2></div>
+      <div className="dp-empty">
+        <div className="icon">🗺️</div>
+        <p>Click any city <span style={{color:'#38bdf8'}}>●</span> or district <span style={{color:'#a855f7'}}>◆</span><br/>marker on the map to view<br/>live risk data</p>
+      </div>
+    </div>
+  );
+
+  const title = det ? (det.name || activeId) : activeId;
+  const subtitle = isDistrict
+    ? `District · ${det?.region_id ? det.region_id.charAt(0).toUpperCase()+det.region_id.slice(1) : ''}`
+    : (reg ? `${reg.lat.toFixed(2)}°N, ${reg.lon.toFixed(2)}°E` : '');
+
+  return(
+    <div className="detail-panel">
+      <div className="card-hdr">
+        <div>
+          <h2>{isDistrict ? '📍' : '🏙'} {title}</h2>
+          <div className="sub">{subtitle}</div>
+        </div>
+        <button className="xbtn" onClick={onClose}>✕</button>
+      </div>
+      <div className="dp-body">
+
+        {/* Live Sensor Readings */}
+        {sen && Object.keys(sen).length > 0 && <>
+          <div className="section-title">📡 Live Sensor Readings</div>
+          <div className="sensor-grid">
+            {[
+              {icon:'🌧',val:`${sen.rainfall_mm} mm`,lbl:'Rainfall'},
+              {icon:'🌡',val:`${sen.temperature_c}°C`,lbl:'Temperature'},
+              {icon:'🌊',val:`${sen.river_level_m} m`,lbl:'River Level'},
+              {icon:'💧',val:`${sen.soil_moisture_pct}%`,lbl:'Soil Moisture'},
+              {icon:'💨',val:`${sen.wind_speed_kmh} km/h`,lbl:'Wind Speed'},
+              {icon:'🧭',val:`${sen.wind_direction_deg}°`,lbl:'Wind Dir'},
+            ].map(s=>(
+              <div key={s.lbl} className="sensor-chip">
+                <div className="s-icon">{s.icon}</div>
+                <div className="s-val">{s.val}</div>
+                <div className="s-lbl">{s.lbl}</div>
+              </div>
+            ))}
+          </div>
+        </>}
+
+        {/* Risk Predictions */}
+        {det && <>
+          <div className="section-title">⚠️ Risk Predictions (6h Forecast)</div>
+          <div className="risk-rows">
+            {(det.disaster_types||[]).map(d=>(
+              <div key={d.disaster_type} className="risk-row">
+                <span style={{fontSize:'1.1rem'}}>{DT_ICON[d.disaster_type]||'⚡'}</span>
+                <span className="dtype">{d.disaster_type}</span>
+                <Badge l={d.risk_level}/>
+                <div className="prob-wrap">
+                  <div className="prob-track">
+                    <div className="prob-fill" style={{width:`${d.probability_pct}%`,background:RC[d.risk_level]}}/>
+                  </div>
+                  <span className="prob-pct">{d.probability_pct}%</span>
+                </div>
+                <span className="tti">{d.time_to_impact_h!=null?`${d.time_to_impact_h}h`:'—'}</span>
+              </div>
+            ))}
+          </div>
+        </>}
+
+        {/* XAI Explanation */}
+        <div className="section-title" style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <span>🧠 AI Explanation</span>
+          <select value={xt} onChange={e=>setXt(e.target.value)} className="fsel" style={{fontSize:'.72rem',padding:'3px 8px'}}>
+            {DT.map(t=><option key={t} value={t}>{DT_ICON[t]} {t}</option>)}
+          </select>
+        </div>
+        {xai && <div className="xai-card">
+          <div className="xai-summary">"{xai.plain_language_summary}"</div>
+          {(xai.contributing_factors||[]).slice(0,4).map(f=>(
+            <div key={f.feature_name} className="xai-factor">
+              <div className="xai-factor-row">
+                <span className="xai-factor-name">{f.feature_name.replace(/_/g,' ')}</span>
+                <span className="xai-factor-pct">{f.contribution_pct}%</span>
+              </div>
+              <div className="xai-bar-bg"><div className="xai-bar-fill" style={{width:`${f.contribution_pct}%`}}/></div>
+            </div>
+          ))}
+        </div>}
+      </div>
+    </div>
+  );
+}
+
+// ── Live Map Tab ───────────────────────────────────────────
+function LiveMapTab(){
+  const [regions,setRegions] = useState([]);
+  const [districts,setDistricts] = useState([]);
+  const [filter,setFilter] = useState('');
+  const [cityFilter,setCityFilter] = useState('');
+  const [showDistricts,setShowDistricts] = useState(false);
+  const [sel,setSel] = useState(null);
+  const [selDistrict,setSelDistrict] = useState(null);
+
+  const loadRegions = useCallback(()=>{
+    const u = filter ? `${API}/api/regions?disaster_type=${filter}` : `${API}/api/regions`;
+    fetch(u).then(r=>r.json()).then(setRegions).catch(()=>{});
+  },[filter]);
+
+  const loadDistricts = useCallback(()=>{
+    if(!showDistricts) { setDistricts([]); return; }
+    let u = `${API}/api/districts`;
+    const params = [];
+    if(cityFilter) params.push(`region_id=${cityFilter}`);
+    if(filter) params.push(`disaster_type=${filter}`);
+    if(params.length) u += '?' + params.join('&');
+    fetch(u).then(r=>r.json()).then(setDistricts).catch(()=>{});
+  },[showDistricts,cityFilter,filter]);
+
+  useEffect(()=>{
+    loadRegions();
+    const t = setInterval(loadRegions,15000);
+    return()=>clearInterval(t);
+  },[loadRegions]);
+
+  useEffect(()=>{
+    loadDistricts();
+    const t = setInterval(loadDistricts,15000);
+    return()=>clearInterval(t);
+  },[loadDistricts]);
+
+  const h=regions.filter(r=>r.risk_level==='High').length;
+  const md=regions.filter(r=>r.risk_level==='Medium').length;
+  const lw=regions.filter(r=>r.risk_level==='Low').length;
+  const dh=districts.filter(d=>d.risk_level==='High').length;
+
+  const handleSelectCity = (id)=>{
+    setSel(id===sel?null:id);
+    setSelDistrict(null);
+  };
+  const handleSelectDistrict = (id)=>{
+    setSelDistrict(id===selDistrict?null:id);
+    setSel(null);
+  };
+
+  return(<div>
+    <div className="stats">
+      <div className="scard">
+        <div className="sicon" style={{background:'rgba(239,68,68,.15)'}}>🔴</div>
+        <div><div className="sval" style={{color:'#fca5a5'}}>{h}</div><div className="slbl">High Risk Cities</div></div>
+      </div>
+      <div className="scard">
+        <div className="sicon" style={{background:'rgba(245,158,11,.15)'}}>🟡</div>
+        <div><div className="sval" style={{color:'#fcd34d'}}>{md}</div><div className="slbl">Medium Risk</div></div>
+      </div>
+      <div className="scard">
+        <div className="sicon" style={{background:'rgba(34,197,94,.15)'}}>🟢</div>
+        <div><div className="sval" style={{color:'#86efac'}}>{lw}</div><div className="slbl">Low Risk</div></div>
+      </div>
+      <div className="scard">
+        <div className="sicon" style={{background:'rgba(168,85,247,.15)'}}>📍</div>
+        <div><div className="sval" style={{color:'#d8b4fe'}}>{showDistricts?districts.length:'—'}</div><div className="slbl">Districts Shown</div></div>
+      </div>
+    </div>
+
+    <div className="map-layout">
+      <div className="card">
+        <div className="card-hdr">
+          <h2>🗺️ India Risk Map</h2>
+          <div className="ctrl-row" style={{flexWrap:'wrap',gap:8}}>
+            {/* Disaster type filter */}
+            <select className="fsel" value={filter} onChange={e=>setFilter(e.target.value)}>
+              <option value="">All disaster types</option>
+              {DT.map(t=><option key={t} value={t}>{DT_ICON[t]} {t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
+            </select>
+
+            {/* City filter */}
+            <select className="fsel" value={cityFilter} onChange={e=>setCityFilter(e.target.value)}>
+              <option value="">All cities</option>
+              {['mumbai','delhi','chennai','kolkata','bangalore','hyderabad','pune','ahmedabad'].map(c=>(
+                <option key={c} value={c}>{c.charAt(0).toUpperCase()+c.slice(1)}</option>
+              ))}
+            </select>
+
+            {/* District toggle */}
+            <button
+              className="rbtn"
+              style={{background:showDistricts?'#4c1d95':'#334155',color:showDistricts?'#d8b4fe':'#cbd5e1',border:showDistricts?'1px solid #7c3aed':'none'}}
+              onClick={()=>setShowDistricts(v=>!v)}
+            >
+              {showDistricts?'◆ Hide Districts':'◆ Show Districts'}
+            </button>
+
+            <button className="rbtn" onClick={()=>{loadRegions();loadDistricts();}}>↻</button>
+          </div>
+        </div>
+
+        <IndiaMap
+          regions={cityFilter ? regions.filter(r=>r.region_id===cityFilter) : regions}
+          districts={districts}
+          onSelect={handleSelectCity}
+          onSelectDistrict={handleSelectDistrict}
+          selected={sel}
+          selectedDistrict={selDistrict}
+          showDistricts={showDistricts}
+        />
+
+        <div className="map-footer">
+          <span style={{fontWeight:600,color:'#94a3b8',marginRight:4}}>Cities:</span>
+          {[['#ef4444','High'],['#f59e0b','Medium'],['#22c55e','Low']].map(([c,l])=>(
+            <span key={l}><span className="leg-dot" style={{background:c,boxShadow:`0 0 5px ${c}`}}/>{l}</span>
+          ))}
+          {showDistricts && <>
+            <span style={{marginLeft:12,fontWeight:600,color:'#94a3b8',marginRight:4}}>Districts ◆:</span>
+            {[['#ef4444','High'],['#f59e0b','Med'],['#22c55e','Low']].map(([c,l])=>(
+              <span key={'d'+l}><span style={{width:8,height:8,background:c,display:'inline-block',transform:'rotate(45deg)',marginRight:4,verticalAlign:'middle'}}/>{l}</span>
+            ))}
+          </>}
+          <span style={{marginLeft:'auto',fontSize:'.72rem'}}>Auto-refreshes every 15s</span>
+        </div>
+
+        {/* District list table when city is selected */}
+        {showDistricts && cityFilter && districts.length > 0 && (
+          <div style={{borderTop:'1px solid #334155',padding:'14px 18px'}}>
+            <div className="section-title" style={{marginBottom:10}}>
+              📍 Districts in {cityFilter.charAt(0).toUpperCase()+cityFilter.slice(1)}
+            </div>
+            <table className="htable" style={{fontSize:'.82rem'}}>
+              <thead>
+                <tr>
+                  <th>District</th>
+                  <th>Risk Level</th>
+                  <th>Color Zone</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {districts.map(d=>(
+                  <tr key={d.district_id} style={{cursor:'pointer'}} onClick={()=>handleSelectDistrict(d.district_id)}>
+                    <td style={{fontWeight:600,color:'#f1f5f9'}}>{d.name}</td>
+                    <td><Badge l={d.risk_level}/></td>
+                    <td>
+                      <span style={{display:'inline-flex',alignItems:'center',gap:5}}>
+                        <span style={{width:10,height:10,borderRadius:'50%',background:RC[d.risk_level],display:'inline-block'}}/>
+                        {d.color}
+                      </span>
+                    </td>
+                    <td><span style={{color:'#38bdf8',fontSize:'.75rem'}}>View details →</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <DetailPanel
+        rid={sel}
+        did={selDistrict}
+        regions={regions}
+        onClose={()=>{setSel(null);setSelDistrict(null);}}
+      />
+    </div>
+  </div>);
+}
+</script>
+<script type="text/babel">
+// ── Chat Tab ───────────────────────────────────────────────
+function ChatTab(){
+  const [msgs,setMsgs] = useState([{r:'b',t:'Hello! I can answer questions about disaster risk across India. Try the quick questions below or ask anything.',it:null}]);
+  const [q,setQ] = useState('');
+  const [rid,setRid] = useState('');
+  const [loading,setLoading] = useState(false);
+  const bot = useRef(null);
+
+  useEffect(()=>{bot.current?.scrollIntoView({behavior:'smooth'});},[msgs]);
+
+  const send = async(txt)=>{
+    const text = txt||q.trim();
+    if(!text) return;
+    setMsgs(m=>[...m,{r:'u',t:text,it:null}]);
+    setQ(''); setLoading(true);
+    try{
+      const res = await fetch(`${API}/api/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:text,region_id:rid||undefined})});
+      const d = await res.json();
+      setMsgs(m=>[...m,{r:'b',t:d.response,it:d.intent}]);
+    }catch{
+      setMsgs(m=>[...m,{r:'b',t:'Connection error. Is the server running?',it:null}]);
+    }finally{setLoading(false);}
+  };
+
+  const QS = [
+    'What is the flood risk in Mumbai?',
+    'Is it safe to travel to Delhi?',
+    'Heatwave precautions in Chennai?',
+    'Cyclone risk in Kolkata?',
+    'Drought situation in Ahmedabad?',
+  ];
+
+  return(<div>
+    <div style={{marginBottom:16,display:'flex',gap:12,alignItems:'center'}}>
+      <label style={{fontSize:'.85rem',color:'#94a3b8',fontWeight:500}}>Region:</label>
+      <select value={rid} onChange={e=>setRid(e.target.value)} className="fsel">
+        <option value="">Auto-detect from query</option>
+        {['mumbai','delhi','chennai','kolkata','bangalore','hyderabad','pune','ahmedabad'].map(r=>(
+          <option key={r} value={r}>{r.charAt(0).toUpperCase()+r.slice(1)}</option>
+        ))}
+      </select>
+    </div>
+    <div className="chat-wrap">
+      <div className="chat-msgs">
+        {msgs.map((m,i)=>(
+          <div key={i} className={`msg ${m.r}`}>
+            {m.t}
+            {m.it && <div className="it">Intent detected: {m.it}</div>}
+          </div>
+        ))}
+        {loading && <div className="msg b" style={{color:'#64748b',fontStyle:'italic'}}>Thinking…</div>}
+        <div ref={bot}/>
+      </div>
+      <div className="quick-row">
+        {QS.map(s=><button key={s} className="qpill" onClick={()=>send(s)}>{s}</button>)}
+      </div>
+      <div className="chat-in">
+        <input value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==='Enter'&&send()} placeholder="Ask about disaster risk in any Indian city…"/>
+        <button onClick={()=>send()}>Send</button>
+      </div>
+    </div>
+  </div>);
+}
+
+// ── Crowd Tab ──────────────────────────────────────────────
+function CrowdTab(){
+  const [reports,setReports] = useState([]);
+  const [form,setForm] = useState({region_id:'mumbai',disaster_type:'flood',description:''});
+  const COLORS = {flood:'#38bdf8',heatwave:'#f59e0b',drought:'#a16207',landslide:'#78716c',cyclone:'#a855f7'};
+
+  const load = ()=>fetch(`${API}/api/crowd-reports`).then(r=>r.json()).then(setReports);
+  useEffect(()=>{load();const t=setInterval(load,10000);return()=>clearInterval(t);},[]);
+
+  const submit = async()=>{
+    await fetch(`${API}/api/crowd-reports`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...form,user_id:'demo-user',lat:19.07,lon:72.87})});
+    load();
+    setForm(f=>({...f,description:''}));
+  };
+
+  return(<div>
+    <div className="form-card">
+      <h3>📷 Submit a Crowd Report</h3>
+      <div className="form-row">
+        <div className="ff">
+          <label>Region</label>
+          <select value={form.region_id} onChange={e=>setForm(f=>({...f,region_id:e.target.value}))}>
+            {['mumbai','delhi','chennai','kolkata','bangalore','hyderabad','pune','ahmedabad'].map(r=>(
+              <option key={r} value={r}>{r.charAt(0).toUpperCase()+r.slice(1)}</option>
+            ))}
+          </select>
+        </div>
+        <div className="ff">
+          <label>Disaster Type</label>
+          <select value={form.disaster_type} onChange={e=>setForm(f=>({...f,disaster_type:e.target.value}))}>
+            {DT.map(t=><option key={t} value={t}>{DT_ICON[t]} {t}</option>)}
+          </select>
+        </div>
+        <div className="ff">
+          <label>Description (optional)</label>
+          <input value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} placeholder="What did you observe?"/>
+        </div>
+        <button className="sbtn" onClick={submit}>Submit</button>
+      </div>
+    </div>
+
+    <div style={{fontSize:'.85rem',color:'#64748b',marginBottom:12,fontWeight:500}}>
+      {reports.length} report{reports.length!==1?'s':''} submitted
+    </div>
+
+    {reports.slice().reverse().map(r=>(
+      <div key={r.report_id} className="report-item">
+        <div className="rdot" style={{background:COLORS[r.disaster_type]||'#64748b'}}/>
+        <div style={{flex:1}}>
+          <div style={{display:'flex',gap:10,alignItems:'center'}}>
+            <span className="rtype">{DT_ICON[r.disaster_type]} {r.disaster_type}</span>
+            <span className="rloc">in {r.region_id.charAt(0).toUpperCase()+r.region_id.slice(1)}</span>
+            <span style={{marginLeft:'auto',fontSize:'.75rem',color:'#475569'}}>{new Date(r.reported_at).toLocaleTimeString()}</span>
+          </div>
+          {r.description && <div className="rdesc">{r.description}</div>}
+          <div className="rtime">Status: <span style={{color:'#94a3b8'}}>{r.validation_status}</span></div>
+        </div>
+      </div>
+    ))}
+    {!reports.length && (
+      <div style={{textAlign:'center',padding:'50px 20px',color:'#475569'}}>
+        <div style={{fontSize:'2.5rem',marginBottom:10}}>📋</div>
+        <p style={{fontSize:'.9rem'}}>No reports yet. Submit one above!</p>
+      </div>
+    )}
+  </div>);
+}
+
+// ── History Tab ────────────────────────────────────────────
+function HistoryTab(){
+  const [events,setEvents] = useState(null);
+  const [acc,setAcc] = useState(null);
+
+  useEffect(()=>{
+    fetch(`${API}/api/history/events`).then(r=>r.json()).then(setEvents);
+    fetch(`${API}/api/history/accuracy`).then(r=>r.json()).then(setAcc);
+  },[]);
+
+  return(<div>
+    <div className="hist-card">
+      <div className="hist-hdr"><h2>📊 Model Accuracy Metrics</h2></div>
+      {!acc && <div style={{padding:'24px',color:'#64748b',fontSize:'.9rem'}}>Loading…</div>}
+      {acc && <table className="htable">
+        <thead>
+          <tr>
+            <th>Disaster Type</th>
+            <th>Precision</th>
+            <th>Recall</th>
+            <th>False Alarm Rate</th>
+            <th>Total Predictions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {acc.map(a=>(
+            <tr key={a.disaster_type}>
+              <td><span style={{marginRight:6}}>{DT_ICON[a.disaster_type]}</span><span style={{textTransform:'capitalize',fontWeight:600}}>{a.disaster_type}</span></td>
+              <td>
+                <div className="pbar-wrap">
+                  <div className="pbar-track"><div className="pbar-fill" style={{width:`${a.precision*100}%`,background:'#22c55e'}}/></div>
+                  <span className="pbar-val">{(a.precision*100).toFixed(1)}%</span>
+                </div>
+              </td>
+              <td>
+                <div className="pbar-wrap">
+                  <div className="pbar-track"><div className="pbar-fill" style={{width:`${a.recall*100}%`,background:'#38bdf8'}}/></div>
+                  <span className="pbar-val">{(a.recall*100).toFixed(1)}%</span>
+                </div>
+              </td>
+              <td>
+                <div className="pbar-wrap">
+                  <div className="pbar-track"><div className="pbar-fill" style={{width:`${a.false_alarm_rate*100}%`,background:'#ef4444'}}/></div>
+                  <span className="pbar-val">{(a.false_alarm_rate*100).toFixed(1)}%</span>
+                </div>
+              </td>
+              <td style={{fontWeight:700,color:'#f1f5f9'}}>{a.total_predictions.toLocaleString()}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>}
+    </div>
+
+    <div className="hist-card">
+      <div className="hist-hdr"><h2>📅 Historical Events Timeline</h2></div>
+      {!events && <div style={{padding:'24px',color:'#64748b',fontSize:'.9rem'}}>Loading…</div>}
+      {events && <table className="htable">
+        <thead>
+          <tr><th>Region</th><th>Disaster Type</th><th>Start Date</th><th>End Date</th><th>Severity</th><th>Source</th></tr>
+        </thead>
+        <tbody>
+          {events.map(e=>(
+            <tr key={e.event_id}>
+              <td style={{fontWeight:600,color:'#f1f5f9',textTransform:'capitalize'}}>{e.region_id}</td>
+              <td><span style={{marginRight:5}}>{DT_ICON[e.disaster_type]}</span><span style={{textTransform:'capitalize'}}>{e.disaster_type}</span></td>
+              <td>{e.start_date}</td>
+              <td>{e.end_date}</td>
+              <td>
+                <div className="pbar-wrap">
+                  <div className="pbar-track"><div className="pbar-fill" style={{width:`${e.severity}%`,background:'#f59e0b'}}/></div>
+                  <span className="pbar-val">{e.severity}</span>
+                </div>
+              </td>
+              <td style={{color:'#64748b',fontSize:'.78rem'}}>{e.source}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>}
+    </div>
+  </div>);
+}
+
+// ── App ────────────────────────────────────────────────────
+function App(){
+  const [tab,setTab] = useState('map');
+  const TABS = [
+    {id:'map',  label:'Live Risk Map',  icon:'🗺️'},
+    {id:'chat', label:'AI Assistant',   icon:'💬'},
+    {id:'crowd',label:'Crowd Reports',  icon:'📷'},
+    {id:'hist', label:'Historical',     icon:'📊'},
+  ];
+  return(<div>
+    <div className="hdr">
+      <span className="hdr-logo">🌍</span>
+      <div className="hdr-text">
+        <h1>Disaster Prediction System</h1>
+        <p>AI-powered early warning · India Demo · All 5 disaster types</p>
+      </div>
+      <div className="live-pill"><span className="pulse"/>Live Demo</div>
+    </div>
+    <div className="nav">
+      {TABS.map(t=>(
+        <button key={t.id} className={`ntab${tab===t.id?' on':''}`} onClick={()=>setTab(t.id)}>
+          <span>{t.icon}</span>{t.label}
+        </button>
+      ))}
+    </div>
+    <div className="pg">
+      {tab==='map'  && <LiveMapTab/>}
+      {tab==='chat' && <ChatTab/>}
+      {tab==='crowd'&& <CrowdTab/>}
+      {tab==='hist' && <HistoryTab/>}
+    </div>
+  </div>);
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
