@@ -37,6 +37,8 @@ FORECAST_HORIZONS = [6, 24, 72]
 def build_prediction_cycle(
     ssm_model,
     transformer_model,
+    gnn_model,
+    region_graph,
     ensemble,
     feature_router,
     postgres_store,
@@ -44,6 +46,9 @@ def build_prediction_cycle(
     publisher,
 ):
     """Return a closure that runs a full prediction cycle for one region."""
+
+    # Shared multi-region SSM feature cache for GNN (populated across cycles)
+    _region_ssm_cache: Dict[str, Any] = {}
 
     def on_prediction_cycle(region_id: str, readings: List[Dict[str, Any]]) -> None:
         logger.info(
@@ -60,7 +65,6 @@ def build_prediction_cycle(
             cnn_features = consumer.cnn_cache.get(region_id)
 
         for disaster_type in SUPPORTED_DISASTER_TYPES:
-            # Inject CNN-derived cloud_density into readings for cyclone/flood/landslide/drought
             enriched_readings = readings
             if cnn_features and disaster_type in ("flood", "drought", "landslide", "cyclone"):
                 enriched_readings = [
@@ -69,20 +73,39 @@ def build_prediction_cycle(
                 ]
             routed = feature_router.route(disaster_type, enriched_readings, region_id)
             ssm_features[disaster_type] = ssm_model.extract_features(routed)
-        # Transformer: build region feature map (single region for Phase 1).
-        # Use flood SSM vector as the representative region feature.
-        region_feature_map = {region_id: ssm_features["flood"]}
-        context_map = transformer_model.compute_context(region_feature_map)
+
+        # Update shared region cache with flood SSM vector for GNN
+        _region_ssm_cache[region_id] = ssm_features["flood"]
+
+        # Transformer: global context across all cached regions
+        context_map = transformer_model.compute_context(dict(_region_ssm_cache))
         transformer_vector = context_map.get(region_id)
+
+        # GNN: propagate region-to-region impact
+        try:
+            gnn_output = gnn_model.propagate(dict(_region_ssm_cache), region_graph)
+            gnn_vector = gnn_output.get(region_id)
+        except Exception as exc:
+            logger.error("GNN computation failed, switching to degraded mode: %s", exc)
+            gnn_model.enable_degraded_mode()
+            gnn_vector = None
 
         from models.prediction import PredictionRecord
 
         for disaster_type in SUPPORTED_DISASTER_TYPES:
             ssm_vec = ssm_features[disaster_type]
+
+            # Blend GNN output into SSM vector for spatial-propagation-sensitive types
+            if gnn_vector is not None and disaster_type in ("flood", "landslide", "cyclone"):
+                import numpy as np
+                blended_vec = (0.7 * ssm_vec + 0.3 * gnn_vector).astype(ssm_vec.dtype)
+            else:
+                blended_vec = ssm_vec
+
             for horizon in FORECAST_HORIZONS:
                 risk_level, prob_pct, tti, severity = ensemble.predict(
                     disaster_type=disaster_type,
-                    ssm_vector=ssm_vec,
+                    ssm_vector=blended_vec,
                     transformer_vector=transformer_vector,
                     forecast_horizon_h=horizon,
                 )
@@ -98,21 +121,18 @@ def build_prediction_cycle(
                     input_data_snapshot_id=snapshot_id,
                 )
 
-                # Persist to PostgreSQL.
                 if postgres_store:
                     try:
                         postgres_store.save(record)
                     except Exception as exc:
                         logger.error("PostgreSQL save failed: %s", exc)
 
-                # Write to InfluxDB.
                 if influx_store:
                     try:
                         influx_store.write(record)
                     except Exception as exc:
                         logger.error("InfluxDB write failed: %s", exc)
 
-                # Publish to Kafka.
                 if publisher:
                     try:
                         publisher.publish_prediction(record)
@@ -121,11 +141,7 @@ def build_prediction_cycle(
 
                 logger.info(
                     "Prediction: region=%s type=%s horizon=%dh risk=%s prob=%.1f%%",
-                    region_id,
-                    disaster_type,
-                    horizon,
-                    risk_level,
-                    prob_pct,
+                    region_id, disaster_type, horizon, risk_level, prob_pct,
                 )
 
     return on_prediction_cycle
@@ -143,11 +159,16 @@ def main() -> None:
     from engine.transformer import TransformerModel
     from engine.ensemble import EnsembleAggregator
     from engine.feature_router import FeatureRouter
+    from engine.gnn import GNNModel, build_graph_from_db
 
     ssm_model = SSMModel()
     transformer_model = TransformerModel()
     ensemble = EnsembleAggregator()
     feature_router = FeatureRouter()
+
+    # Load region adjacency graph for GNN
+    region_graph = build_graph_from_db(POSTGRES_URL)
+    gnn_model = GNNModel()
 
     # --- Storage ---
     from store.postgres import PredictionStore
@@ -182,7 +203,7 @@ def main() -> None:
     from consumer import PredictionConsumer
 
     on_cycle = build_prediction_cycle(
-        ssm_model, transformer_model, ensemble, feature_router,
+        ssm_model, transformer_model, gnn_model, region_graph, ensemble, feature_router,
         postgres_store, influx_store, publisher,
     )
 

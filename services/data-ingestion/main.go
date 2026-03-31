@@ -9,6 +9,7 @@ import (
 
 	"github.com/joho/godotenv"
 
+	"github.com/disaster-prediction/data-ingestion/internal/govfeed"
 	"github.com/disaster-prediction/data-ingestion/internal/historical"
 	"github.com/disaster-prediction/data-ingestion/internal/ingestion"
 	"github.com/disaster-prediction/data-ingestion/internal/satellite"
@@ -71,6 +72,13 @@ func main() {
 	// --- Task 17.1: Historical data loader ---
 	histLoader := historical.NewLoader(postgresURL, kafkaBrokers)
 
+	// --- Task 22.1: Government data feed connector ---
+	govConnector, govErr := govfeed.NewGovFeedConnectorFromEnv(kafkaBrokers)
+	if govErr != nil {
+		slog.Warn("gov feed connector not configured — skipping", "reason", govErr)
+		govConnector = nil
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Run all services as goroutines.
@@ -81,6 +89,9 @@ func main() {
 		go satConnector.Run(ctx)
 	}
 	go histLoader.RunPeriodic(ctx)
+	if govConnector != nil {
+		go govConnector.Run(ctx)
+	}
 
 	slog.Info("Data Ingestion Service running — waiting for shutdown signal")
 

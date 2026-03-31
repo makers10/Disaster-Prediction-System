@@ -59,12 +59,15 @@ services:
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic evacuation.route.updated --partitions 3 --replication-factor 1 --config retention.ms=604800000
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic satellite.feed.unavailable --partitions 1 --replication-factor 1 --config retention.ms=604800000
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic crowd.report.threshold.exceeded --partitions 3 --replication-factor 1 --config retention.ms=604800000
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic raw.satellite.image --partitions 3 --replication-factor 1 --config retention.ms=604800000
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic historical.disaster.event --partitions 3 --replication-factor 1 --config retention.ms=604800000
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic raw.gov.data --partitions 3 --replication-factor 1 --config retention.ms=604800000
       echo 'All topics created.'
       kafka-topics --bootstrap-server kafka:29092 --list
       "
 
   postgres:
-    image: postgres:15
+    image: postgis/postgis:15-3.4
     container_name: postgres
     environment:
       POSTGRES_USER: disaster_user
