@@ -162,7 +162,7 @@ function Badge({l}){
 }
 
 // ── India Map ──────────────────────────────────────────────
-function IndiaMap({regions, districts, onSelect, onSelectDistrict, selected, selectedDistrict, showDistricts}){
+function IndiaMap({regions, districts, villages, onSelect, onSelectDistrict, selected, selectedDistrict, showDistricts, showVillages}){
   const mapRef = useRef(null);
   const mkRef = useRef({});
   const dmkRef = useRef({});
@@ -231,8 +231,67 @@ function IndiaMap({regions, districts, onSelect, onSelectDistrict, selected, sel
     });
   },[districts,showDistricts,selectedDistrict,onSelectDistrict]);
 
+  // Village markers (tiny triangles for prone villages)
+  const vmkRef = useRef({});
+  useEffect(()=>{
+    const m = mapRef.current;
+    if(!m) return;
+    Object.values(vmkRef.current).forEach(mk=>mk.remove());
+    vmkRef.current = {};
+    if(!showVillages || !villages.length) return;
+    villages.forEach((v,i)=>{
+      const dtype = v.disaster_types[0];
+      const VC = {flood:'#38bdf8',heatwave:'#f59e0b',drought:'#a16207',landslide:'#78716c',cyclone:'#a855f7'};
+      const c = VC[dtype] || '#94a3b8';
+      const icon = L.divIcon({
+        className:'',
+        html:`<div title="${v.village_name}" style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid ${c};cursor:pointer;filter:drop-shadow(0 0 3px ${c}88)"></div>`,
+        iconSize:[12,10],iconAnchor:[6,10]
+      });
+      const mk = L.marker([v.lat,v.lon],{icon}).addTo(m);
+      mk.bindTooltip(`
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:8px 12px;font-family:system-ui;min-width:160px">
+          <div style="font-weight:700;font-size:.85rem;color:#f1f5f9;margin-bottom:3px">🏘 ${v.village_name}</div>
+          <div style="font-size:.75rem;color:${c};font-weight:600">${v.disaster_types.join(', ')}</div>
+          <div style="font-size:.7rem;color:#94a3b8;margin-top:3px">${v.historical_incidents} historical incidents</div>
+          <div style="font-size:.68rem;color:#64748b">Last: ${v.last_event}</div>
+        </div>`,
+        {permanent:false,direction:'top',offset:[0,-10],opacity:1,className:''}
+      );
+      vmkRef.current[`${v.village_name}-${i}`] = mk;
+    });
+  },[villages,showVillages]);
+
   return <div id="imap"/>;
 }
+  useEffect(()=>{
+    const m = mapRef.current;
+    if(!m) return;
+    Object.values(vmkRef.current).forEach(mk=>mk.remove());
+    vmkRef.current = {};
+    if(!showVillages || !villages.length) return;
+    villages.forEach((v,i)=>{
+      const dtype = v.disaster_types[0];
+      const VC = {flood:'#38bdf8',heatwave:'#f59e0b',drought:'#a16207',landslide:'#78716c',cyclone:'#a855f7'};
+      const c = VC[dtype] || '#94a3b8';
+      const icon = L.divIcon({
+        className:'',
+        html:`<div title="${v.village_name}" style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid ${c};cursor:pointer;filter:drop-shadow(0 0 3px ${c}88)"></div>`,
+        iconSize:[12,10],iconAnchor:[6,10]
+      });
+      const mk = L.marker([v.lat,v.lon],{icon}).addTo(m);
+      mk.bindTooltip(`
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:8px 12px;font-family:system-ui;min-width:160px">
+          <div style="font-weight:700;font-size:.85rem;color:#f1f5f9;margin-bottom:3px">🏘 ${v.village_name}</div>
+          <div style="font-size:.75rem;color:${c};font-weight:600">${v.disaster_types.join(', ')}</div>
+          <div style="font-size:.7rem;color:#94a3b8;margin-top:3px">${v.historical_incidents} historical incidents</div>
+          <div style="font-size:.68rem;color:#64748b">Last: ${v.last_event}</div>
+        </div>`,
+        {permanent:false,direction:'top',offset:[0,-10],opacity:1,className:''}
+      );
+      vmkRef.current[`${v.village_name}-${i}`] = mk;
+    });
+  },[villages,showVillages]);
 
 // ── Detail Panel ───────────────────────────────────────────
 function DetailPanel({rid, did, regions, onClose}){
@@ -362,9 +421,11 @@ function DetailPanel({rid, did, regions, onClose}){
 function LiveMapTab(){
   const [regions,setRegions] = useState([]);
   const [districts,setDistricts] = useState([]);
+  const [villages,setVillages] = useState([]);
   const [filter,setFilter] = useState('');
   const [cityFilter,setCityFilter] = useState('');
   const [showDistricts,setShowDistricts] = useState(false);
+  const [showVillages,setShowVillages] = useState(false);
   const [sel,setSel] = useState(null);
   const [selDistrict,setSelDistrict] = useState(null);
 
@@ -383,6 +444,16 @@ function LiveMapTab(){
     fetch(u).then(r=>r.json()).then(setDistricts).catch(()=>{});
   },[showDistricts,cityFilter,filter]);
 
+  const loadVillages = useCallback(()=>{
+    if(!showVillages) { setVillages([]); return; }
+    let u = `${API}/api/prone-villages`;
+    const params = [];
+    if(cityFilter) params.push(`region_id=${cityFilter}`);
+    if(filter) params.push(`disaster_type=${filter}`);
+    if(params.length) u += '?' + params.join('&');
+    fetch(u).then(r=>r.json()).then(setVillages).catch(()=>{});
+  },[showVillages,cityFilter,filter]);
+
   useEffect(()=>{
     loadRegions();
     const t = setInterval(loadRegions,15000);
@@ -394,6 +465,10 @@ function LiveMapTab(){
     const t = setInterval(loadDistricts,15000);
     return()=>clearInterval(t);
   },[loadDistricts]);
+
+  useEffect(()=>{
+    loadVillages();
+  },[loadVillages]);
 
   const h=regions.filter(r=>r.risk_level==='High').length;
   const md=regions.filter(r=>r.risk_level==='Medium').length;
@@ -427,7 +502,10 @@ function LiveMapTab(){
         <div className="sicon" style={{background:'rgba(168,85,247,.15)'}}>📍</div>
         <div><div className="sval" style={{color:'#d8b4fe'}}>{showDistricts?districts.length:'—'}</div><div className="slbl">Districts Shown</div></div>
       </div>
-    </div>
+      <div className="scard" style={{display:'none'}}>
+        <div className="sicon" style={{background:'rgba(251,191,36,.15)'}}>🏘</div>
+        <div><div className="sval" style={{color:'#fde68a'}}>{showVillages?villages.length:'—'}</div><div className="slbl">Prone Villages</div></div>
+      </div>    </div>
 
     <div className="map-layout">
       <div className="card">
@@ -457,18 +535,29 @@ function LiveMapTab(){
               {showDistricts?'◆ Hide Districts':'◆ Show Districts'}
             </button>
 
-            <button className="rbtn" onClick={()=>{loadRegions();loadDistricts();}}>↻</button>
+            {/* Village toggle */}
+            <button
+              className="rbtn"
+              style={{background:showVillages?'#78350f':'#334155',color:showVillages?'#fde68a':'#cbd5e1',border:showVillages?'1px solid #d97706':'none'}}
+              onClick={()=>setShowVillages(v=>!v)}
+            >
+              {showVillages?'▲ Hide Villages':'▲ Prone Villages'}
+            </button>
+
+            <button className="rbtn" onClick={()=>{loadRegions();loadDistricts();loadVillages();}}>↻</button>
           </div>
         </div>
 
         <IndiaMap
           regions={cityFilter ? regions.filter(r=>r.region_id===cityFilter) : regions}
           districts={districts}
+          villages={villages}
           onSelect={handleSelectCity}
           onSelectDistrict={handleSelectDistrict}
           selected={sel}
           selectedDistrict={selDistrict}
           showDistricts={showDistricts}
+          showVillages={showVillages}
         />
 
         <div className="map-footer">
@@ -476,10 +565,13 @@ function LiveMapTab(){
           {[['#ef4444','High'],['#f59e0b','Medium'],['#22c55e','Low']].map(([c,l])=>(
             <span key={l}><span className="leg-dot" style={{background:c,boxShadow:`0 0 5px ${c}`}}/>{l}</span>
           ))}
-          {showDistricts && <>
-            <span style={{marginLeft:12,fontWeight:600,color:'#94a3b8',marginRight:4}}>Districts ◆:</span>
-            {[['#ef4444','High'],['#f59e0b','Med'],['#22c55e','Low']].map(([c,l])=>(
-              <span key={'d'+l}><span style={{width:8,height:8,background:c,display:'inline-block',transform:'rotate(45deg)',marginRight:4,verticalAlign:'middle'}}/>{l}</span>
+          {showVillages && <>
+            <span style={{marginLeft:12,fontWeight:600,color:'#94a3b8',marginRight:4}}>Villages ▲:</span>
+            {[['#38bdf8','flood'],['#f59e0b','heat'],['#a855f7','cyclone'],['#78716c','land']].map(([c,l])=>(
+              <span key={'v'+l} style={{display:'flex',alignItems:'center',gap:3}}>
+                <span style={{width:0,height:0,borderLeft:'5px solid transparent',borderRight:'5px solid transparent',borderBottom:`8px solid ${c}`,display:'inline-block',marginRight:3}}/>
+                {l}
+              </span>
             ))}
           </>}
           <span style={{marginLeft:'auto',fontSize:'.72rem'}}>Auto-refreshes every 15s</span>
@@ -667,11 +759,23 @@ function CrowdTab(){
 function HistoryTab(){
   const [events,setEvents] = useState(null);
   const [acc,setAcc] = useState(null);
+  const [villages,setVillages] = useState(null);
+  const [villageFilter,setVillageFilter] = useState('');
+  const [villageDtype,setVillageDtype] = useState('');
 
   useEffect(()=>{
     fetch(`${API}/api/history/events`).then(r=>r.json()).then(setEvents);
     fetch(`${API}/api/history/accuracy`).then(r=>r.json()).then(setAcc);
+    fetch(`${API}/api/prone-villages`).then(r=>r.json()).then(setVillages);
   },[]);
+
+  const filteredVillages = (villages||[]).filter(v=>{
+    if(villageFilter && v.region_id !== villageFilter) return false;
+    if(villageDtype && !v.disaster_types.includes(villageDtype)) return false;
+    return true;
+  });
+
+  const DT_COLOR = {flood:'#38bdf8',heatwave:'#f59e0b',drought:'#a16207',landslide:'#78716c',cyclone:'#a855f7'};
 
   return(<div>
     <div className="hist-card">
@@ -737,6 +841,71 @@ function HistoryTab(){
                 </div>
               </td>
               <td style={{color:'#64748b',fontSize:'.78rem'}}>{e.source}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>}
+    </div>
+
+    {/* Prone Villages */}
+    <div className="hist-card">
+      <div className="hist-hdr" style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10}}>
+        <h2>🏘 Historically Disaster-Prone Villages</h2>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          <select className="fsel" value={villageFilter} onChange={e=>setVillageFilter(e.target.value)}>
+            <option value="">All cities</option>
+            {['mumbai','delhi','chennai','kolkata','bangalore','hyderabad','pune','ahmedabad'].map(c=>(
+              <option key={c} value={c}>{c.charAt(0).toUpperCase()+c.slice(1)}</option>
+            ))}
+          </select>
+          <select className="fsel" value={villageDtype} onChange={e=>setVillageDtype(e.target.value)}>
+            <option value="">All disaster types</option>
+            {DT.map(t=><option key={t} value={t}>{DT_ICON[t]} {t}</option>)}
+          </select>
+          <span style={{fontSize:'.75rem',color:'#64748b'}}>{filteredVillages.length} villages</span>
+        </div>
+      </div>
+      {!villages && <div style={{padding:'24px',color:'#64748b',fontSize:'.9rem'}}>Loading…</div>}
+      {villages && <table className="htable">
+        <thead>
+          <tr>
+            <th>Village</th>
+            <th>District</th>
+            <th>City</th>
+            <th>Disaster Types</th>
+            <th>Historical Incidents</th>
+            <th>Risk Score</th>
+            <th>Last Event</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredVillages.map((v,i)=>(
+            <tr key={i}>
+              <td style={{fontWeight:700,color:'#f1f5f9'}}>🏘 {v.village_name}</td>
+              <td style={{color:'#94a3b8',fontSize:'.82rem',textTransform:'capitalize'}}>{v.district_id.replace(/-/g,' ')}</td>
+              <td style={{textTransform:'capitalize',fontWeight:500}}>{v.region_id}</td>
+              <td>
+                <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                  {v.disaster_types.map(dt=>(
+                    <span key={dt} style={{background:`${DT_COLOR[dt]}22`,color:DT_COLOR[dt],border:`1px solid ${DT_COLOR[dt]}44`,borderRadius:12,padding:'1px 7px',fontSize:'.7rem',fontWeight:600}}>
+                      {DT_ICON[dt]} {dt}
+                    </span>
+                  ))}
+                </div>
+              </td>
+              <td>
+                <div className="pbar-wrap">
+                  <div className="pbar-track"><div className="pbar-fill" style={{width:`${Math.min(100,v.historical_incidents*4)}%`,background:'#ef4444'}}/></div>
+                  <span className="pbar-val" style={{color:'#fca5a5'}}>{v.historical_incidents}</span>
+                </div>
+              </td>
+              <td>
+                <div className="pbar-wrap">
+                  <div className="pbar-track"><div className="pbar-fill" style={{width:`${v.risk_score}%`,background:v.risk_score>=80?'#ef4444':v.risk_score>=50?'#f59e0b':'#22c55e'}}/></div>
+                  <span className="pbar-val">{v.risk_score}</span>
+                </div>
+              </td>
+              <td style={{fontSize:'.78rem',color:'#94a3b8'}}>{v.last_event}</td>
             </tr>
           ))}
         </tbody>

@@ -101,6 +101,184 @@ DISTRICTS: Dict[str, List[Dict[str, Any]]] = {
     ],
 }
 
+# Historically disaster-prone villages per district
+# Based on real historical flood/cyclone/drought patterns in India
+PRONE_VILLAGES: Dict[str, List[Dict[str, Any]]] = {
+    # Mumbai
+    "mumbai-south": [
+        {"name": "Dharavi",       "lat": 19.04, "lon": 72.85, "disaster_types": ["flood"],           "incidents": 12, "last_event": "2024-07-15"},
+        {"name": "Kurla",         "lat": 19.07, "lon": 72.88, "disaster_types": ["flood"],           "incidents": 9,  "last_event": "2024-07-15"},
+        {"name": "Sion",          "lat": 19.04, "lon": 72.86, "disaster_types": ["flood"],           "incidents": 7,  "last_event": "2023-06-28"},
+    ],
+    "mumbai-suburban": [
+        {"name": "Malad",         "lat": 19.18, "lon": 72.84, "disaster_types": ["flood"],           "incidents": 11, "last_event": "2024-07-15"},
+        {"name": "Kandivali",     "lat": 19.20, "lon": 72.84, "disaster_types": ["flood"],           "incidents": 8,  "last_event": "2024-07-15"},
+        {"name": "Borivali",      "lat": 19.23, "lon": 72.85, "disaster_types": ["flood"],           "incidents": 6,  "last_event": "2023-07-02"},
+        {"name": "Andheri",       "lat": 19.11, "lon": 72.87, "disaster_types": ["flood"],           "incidents": 14, "last_event": "2024-07-15"},
+    ],
+    "thane": [
+        {"name": "Bhiwandi",      "lat": 19.30, "lon": 73.06, "disaster_types": ["flood"],           "incidents": 10, "last_event": "2024-07-16"},
+        {"name": "Kalyan",        "lat": 19.24, "lon": 73.13, "disaster_types": ["flood"],           "incidents": 8,  "last_event": "2024-07-16"},
+        {"name": "Ulhasnagar",    "lat": 19.22, "lon": 73.16, "disaster_types": ["flood"],           "incidents": 7,  "last_event": "2023-07-05"},
+    ],
+    "raigad": [
+        {"name": "Pen",           "lat": 18.74, "lon": 73.09, "disaster_types": ["flood","landslide"],"incidents": 5, "last_event": "2023-07-22"},
+        {"name": "Alibag",        "lat": 18.64, "lon": 72.87, "disaster_types": ["cyclone","flood"], "incidents": 8,  "last_event": "2024-06-03"},
+        {"name": "Mahad",         "lat": 18.08, "lon": 73.42, "disaster_types": ["flood","landslide"],"incidents": 15,"last_event": "2024-07-22"},
+    ],
+    "palghar": [
+        {"name": "Vasai",         "lat": 19.47, "lon": 72.83, "disaster_types": ["flood","cyclone"], "incidents": 6,  "last_event": "2024-06-03"},
+        {"name": "Dahanu",        "lat": 19.97, "lon": 72.72, "disaster_types": ["cyclone","flood"], "incidents": 9,  "last_event": "2023-05-18"},
+    ],
+    # Delhi
+    "central-delhi": [
+        {"name": "Yamuna Bazar",  "lat": 28.67, "lon": 77.23, "disaster_types": ["flood"],           "incidents": 8,  "last_event": "2024-07-30"},
+        {"name": "Kashmere Gate", "lat": 28.67, "lon": 77.23, "disaster_types": ["flood"],           "incidents": 6,  "last_event": "2023-07-12"},
+    ],
+    "north-delhi": [
+        {"name": "Burari",        "lat": 28.75, "lon": 77.20, "disaster_types": ["flood"],           "incidents": 10, "last_event": "2024-07-30"},
+        {"name": "Mukherjee Nagar","lat": 28.71, "lon": 77.20,"disaster_types": ["flood","heatwave"],"incidents": 7,  "last_event": "2024-07-30"},
+        {"name": "Wazirabad",     "lat": 28.74, "lon": 77.24, "disaster_types": ["flood"],           "incidents": 12, "last_event": "2024-07-30"},
+    ],
+    "east-delhi": [
+        {"name": "Yamuna Vihar",  "lat": 28.69, "lon": 77.30, "disaster_types": ["flood"],           "incidents": 9,  "last_event": "2024-07-30"},
+        {"name": "Geeta Colony",  "lat": 28.65, "lon": 77.28, "disaster_types": ["flood"],           "incidents": 7,  "last_event": "2024-07-30"},
+        {"name": "Shahdara",      "lat": 28.67, "lon": 77.29, "disaster_types": ["flood"],           "incidents": 11, "last_event": "2024-07-30"},
+    ],
+    "south-delhi": [
+        {"name": "Sangam Vihar",  "lat": 28.51, "lon": 77.25, "disaster_types": ["heatwave"],        "incidents": 5,  "last_event": "2024-05-20"},
+        {"name": "Okhla",         "lat": 28.55, "lon": 77.28, "disaster_types": ["flood","heatwave"],"incidents": 6,  "last_event": "2024-07-30"},
+    ],
+    "west-delhi": [
+        {"name": "Najafgarh",     "lat": 28.61, "lon": 76.98, "disaster_types": ["flood","drought"], "incidents": 8,  "last_event": "2024-07-30"},
+        {"name": "Dwarka",        "lat": 28.59, "lon": 77.05, "disaster_types": ["flood"],           "incidents": 5,  "last_event": "2023-08-02"},
+    ],
+    "new-delhi": [
+        {"name": "ITO Area",      "lat": 28.63, "lon": 77.24, "disaster_types": ["flood"],           "incidents": 7,  "last_event": "2024-07-30"},
+    ],
+    # Chennai
+    "chennai-north": [
+        {"name": "Ennore",        "lat": 13.22, "lon": 80.32, "disaster_types": ["cyclone","flood"], "incidents": 14, "last_event": "2023-12-04"},
+        {"name": "Manali",        "lat": 13.17, "lon": 80.27, "disaster_types": ["flood","cyclone"], "incidents": 10, "last_event": "2023-12-04"},
+        {"name": "Tondiarpet",    "lat": 13.13, "lon": 80.29, "disaster_types": ["flood"],           "incidents": 8,  "last_event": "2023-11-30"},
+    ],
+    "chennai-south": [
+        {"name": "Velachery",     "lat": 12.98, "lon": 80.22, "disaster_types": ["flood"],           "incidents": 18, "last_event": "2023-12-04"},
+        {"name": "Tambaram",      "lat": 12.92, "lon": 80.11, "disaster_types": ["flood"],           "incidents": 12, "last_event": "2023-12-04"},
+        {"name": "Pallikaranai",  "lat": 12.94, "lon": 80.21, "disaster_types": ["flood"],           "incidents": 20, "last_event": "2023-12-04"},
+        {"name": "Sholinganallur","lat": 12.90, "lon": 80.23, "disaster_types": ["flood"],           "incidents": 15, "last_event": "2023-12-04"},
+    ],
+    "kancheepuram": [
+        {"name": "Kancheepuram",  "lat": 12.83, "lon": 79.70, "disaster_types": ["flood","drought"], "incidents": 7,  "last_event": "2023-11-28"},
+        {"name": "Sriperumbudur", "lat": 12.97, "lon": 79.95, "disaster_types": ["flood"],           "incidents": 5,  "last_event": "2023-11-28"},
+    ],
+    "tiruvallur": [
+        {"name": "Ponneri",       "lat": 13.34, "lon": 80.20, "disaster_types": ["cyclone","flood"], "incidents": 9,  "last_event": "2023-12-04"},
+        {"name": "Gummidipoondi","lat": 13.40, "lon": 80.12, "disaster_types": ["flood"],            "incidents": 6,  "last_event": "2023-12-04"},
+    ],
+    "chengalpattu": [
+        {"name": "Mahabalipuram", "lat": 12.62, "lon": 80.19, "disaster_types": ["cyclone","flood"], "incidents": 11, "last_event": "2023-12-05"},
+        {"name": "Chengalpattu",  "lat": 12.69, "lon": 79.98, "disaster_types": ["flood"],           "incidents": 8,  "last_event": "2023-12-04"},
+    ],
+    # Kolkata
+    "kolkata-north": [
+        {"name": "Shyambazar",    "lat": 22.60, "lon": 88.37, "disaster_types": ["flood"],           "incidents": 7,  "last_event": "2024-08-02"},
+        {"name": "Belgachia",     "lat": 22.60, "lon": 88.36, "disaster_types": ["flood"],           "incidents": 6,  "last_event": "2024-08-02"},
+    ],
+    "kolkata-south": [
+        {"name": "Behala",        "lat": 22.50, "lon": 88.31, "disaster_types": ["flood","cyclone"], "incidents": 9,  "last_event": "2024-05-26"},
+        {"name": "Jadavpur",      "lat": 22.50, "lon": 88.37, "disaster_types": ["flood"],           "incidents": 7,  "last_event": "2024-08-02"},
+        {"name": "Garia",         "lat": 22.46, "lon": 88.39, "disaster_types": ["flood"],           "incidents": 8,  "last_event": "2024-08-02"},
+    ],
+    "howrah": [
+        {"name": "Uluberia",      "lat": 22.47, "lon": 88.10, "disaster_types": ["flood","cyclone"], "incidents": 12, "last_event": "2024-05-26"},
+        {"name": "Amta",          "lat": 22.59, "lon": 87.98, "disaster_types": ["flood"],           "incidents": 10, "last_event": "2024-08-02"},
+        {"name": "Bagnan",        "lat": 22.47, "lon": 87.96, "disaster_types": ["flood","cyclone"], "incidents": 11, "last_event": "2024-05-26"},
+    ],
+    "north-24-parganas": [
+        {"name": "Basirhat",      "lat": 22.66, "lon": 88.87, "disaster_types": ["cyclone","flood"], "incidents": 16, "last_event": "2024-05-26"},
+        {"name": "Sandeshkhali",  "lat": 22.47, "lon": 88.77, "disaster_types": ["cyclone","flood"], "incidents": 18, "last_event": "2024-05-26"},
+        {"name": "Hingalganj",    "lat": 22.68, "lon": 88.83, "disaster_types": ["cyclone","flood"], "incidents": 14, "last_event": "2024-05-26"},
+    ],
+    "south-24-parganas": [
+        {"name": "Sagar Island",  "lat": 21.65, "lon": 88.07, "disaster_types": ["cyclone","flood"], "incidents": 22, "last_event": "2024-05-26"},
+        {"name": "Namkhana",      "lat": 21.77, "lon": 88.24, "disaster_types": ["cyclone","flood"], "incidents": 19, "last_event": "2024-05-26"},
+        {"name": "Patharpratima", "lat": 21.85, "lon": 88.35, "disaster_types": ["cyclone","flood"], "incidents": 17, "last_event": "2024-05-26"},
+        {"name": "Gosaba",        "lat": 22.17, "lon": 88.80, "disaster_types": ["cyclone","flood"], "incidents": 20, "last_event": "2024-05-26"},
+    ],
+    # Bangalore
+    "bangalore-urban": [
+        {"name": "Bellandur",     "lat": 12.93, "lon": 77.67, "disaster_types": ["flood"],           "incidents": 8,  "last_event": "2024-09-05"},
+        {"name": "Varthur",       "lat": 12.94, "lon": 77.73, "disaster_types": ["flood"],           "incidents": 10, "last_event": "2024-09-05"},
+        {"name": "Mahadevapura",  "lat": 12.99, "lon": 77.70, "disaster_types": ["flood"],           "incidents": 7,  "last_event": "2024-09-05"},
+        {"name": "HSR Layout",    "lat": 12.91, "lon": 77.64, "disaster_types": ["flood"],           "incidents": 6,  "last_event": "2024-09-05"},
+    ],
+    "bangalore-rural": [
+        {"name": "Doddaballapur", "lat": 13.29, "lon": 77.54, "disaster_types": ["drought","flood"], "incidents": 5,  "last_event": "2023-08-15"},
+        {"name": "Devanahalli",   "lat": 13.25, "lon": 77.71, "disaster_types": ["drought"],         "incidents": 4,  "last_event": "2023-06-20"},
+    ],
+    "ramanagara": [
+        {"name": "Kanakapura",    "lat": 12.55, "lon": 77.42, "disaster_types": ["drought","landslide"],"incidents": 6,"last_event": "2023-07-18"},
+        {"name": "Ramanagara",    "lat": 12.72, "lon": 77.28, "disaster_types": ["drought"],         "incidents": 5,  "last_event": "2023-06-25"},
+    ],
+    # Hyderabad
+    "hyderabad-dist": [
+        {"name": "Musi Riverbank","lat": 17.38, "lon": 78.47, "disaster_types": ["flood"],           "incidents": 13, "last_event": "2024-09-01"},
+        {"name": "Amberpet",      "lat": 17.40, "lon": 78.52, "disaster_types": ["flood"],           "incidents": 9,  "last_event": "2024-09-01"},
+        {"name": "Malakpet",      "lat": 17.37, "lon": 78.50, "disaster_types": ["flood"],           "incidents": 11, "last_event": "2024-09-01"},
+    ],
+    "rangareddy": [
+        {"name": "Shadnagar",     "lat": 17.07, "lon": 78.20, "disaster_types": ["drought","flood"], "incidents": 7,  "last_event": "2024-09-01"},
+        {"name": "Ibrahimpatnam", "lat": 17.11, "lon": 78.67, "disaster_types": ["flood"],           "incidents": 8,  "last_event": "2024-09-01"},
+    ],
+    "medchal": [
+        {"name": "Kompally",      "lat": 17.57, "lon": 78.49, "disaster_types": ["flood"],           "incidents": 6,  "last_event": "2024-09-01"},
+        {"name": "Medchal",       "lat": 17.63, "lon": 78.58, "disaster_types": ["flood"],           "incidents": 5,  "last_event": "2024-09-01"},
+    ],
+    # Pune
+    "pune-city": [
+        {"name": "Parvati",       "lat": 18.50, "lon": 73.85, "disaster_types": ["flood"],           "incidents": 7,  "last_event": "2024-07-25"},
+        {"name": "Katraj",        "lat": 18.45, "lon": 73.86, "disaster_types": ["flood","landslide"],"incidents": 9, "last_event": "2024-07-25"},
+        {"name": "Sinhagad Road", "lat": 18.46, "lon": 73.82, "disaster_types": ["landslide","flood"],"incidents": 8, "last_event": "2024-07-25"},
+    ],
+    "pimpri-chinchwad": [
+        {"name": "Bhosari",       "lat": 18.64, "lon": 73.85, "disaster_types": ["flood"],           "incidents": 6,  "last_event": "2024-07-25"},
+        {"name": "Chinchwad",     "lat": 18.63, "lon": 73.80, "disaster_types": ["flood"],           "incidents": 7,  "last_event": "2024-07-25"},
+    ],
+    "maval": [
+        {"name": "Lonavala",      "lat": 18.75, "lon": 73.41, "disaster_types": ["landslide","flood"],"incidents": 12,"last_event": "2024-07-20"},
+        {"name": "Khandala",      "lat": 18.76, "lon": 73.38, "disaster_types": ["landslide"],       "incidents": 10, "last_event": "2024-07-20"},
+        {"name": "Khopoli",       "lat": 18.79, "lon": 73.34, "disaster_types": ["landslide","flood"],"incidents": 8, "last_event": "2024-07-20"},
+    ],
+    "baramati": [
+        {"name": "Baramati",      "lat": 18.15, "lon": 74.58, "disaster_types": ["drought"],         "incidents": 8,  "last_event": "2023-05-15"},
+        {"name": "Indapur",       "lat": 18.11, "lon": 75.02, "disaster_types": ["drought"],         "incidents": 7,  "last_event": "2023-05-15"},
+    ],
+    # Ahmedabad
+    "ahmedabad-city": [
+        {"name": "Vatva",         "lat": 22.96, "lon": 72.63, "disaster_types": ["flood"],           "incidents": 8,  "last_event": "2024-08-28"},
+        {"name": "Odhav",         "lat": 23.01, "lon": 72.67, "disaster_types": ["flood"],           "incidents": 7,  "last_event": "2024-08-28"},
+        {"name": "Behrampura",    "lat": 23.01, "lon": 72.58, "disaster_types": ["flood"],           "incidents": 9,  "last_event": "2024-08-28"},
+    ],
+    "gandhinagar": [
+        {"name": "Sector 21",     "lat": 23.22, "lon": 72.65, "disaster_types": ["flood"],           "incidents": 5,  "last_event": "2024-08-28"},
+        {"name": "Mansa",         "lat": 23.43, "lon": 72.68, "disaster_types": ["drought","flood"], "incidents": 6,  "last_event": "2023-07-10"},
+    ],
+    "anand": [
+        {"name": "Anand",         "lat": 22.55, "lon": 72.95, "disaster_types": ["flood"],           "incidents": 7,  "last_event": "2024-08-28"},
+        {"name": "Petlad",        "lat": 22.47, "lon": 72.80, "disaster_types": ["flood","drought"], "incidents": 6,  "last_event": "2024-08-28"},
+    ],
+    "kheda": [
+        {"name": "Nadiad",        "lat": 22.69, "lon": 72.86, "disaster_types": ["flood"],           "incidents": 9,  "last_event": "2024-08-28"},
+        {"name": "Kapadvanj",     "lat": 23.02, "lon": 73.07, "disaster_types": ["drought","flood"], "incidents": 7,  "last_event": "2023-07-15"},
+    ],
+    "mehsana": [
+        {"name": "Mehsana",       "lat": 23.60, "lon": 72.38, "disaster_types": ["drought"],         "incidents": 10, "last_event": "2023-06-01"},
+        {"name": "Visnagar",      "lat": 23.70, "lon": 72.55, "disaster_types": ["drought"],         "incidents": 8,  "last_event": "2023-06-01"},
+        {"name": "Unjha",         "lat": 23.80, "lon": 72.40, "disaster_types": ["drought"],         "incidents": 9,  "last_event": "2023-06-01"},
+    ],
+}
+
 # Shared in-memory state
 _state: Dict[str, Any] = {
     "predictions": {},          # region_id → list of PredictionRecord
@@ -545,6 +723,42 @@ class DemoHandler(BaseHTTPRequestHandler):
                 "disaster_types": list(by_type.values()),
                 "sensor": sensor,
             })
+            return
+
+        # ── Prone villages endpoint ────────────────────────────────────
+        if path == "/api/prone-villages":
+            district_filter = (qs.get("district_id") or [None])[0]
+            region_filter = (qs.get("region_id") or [None])[0]
+            dtype_filter = (qs.get("disaster_type") or [None])[0]
+            result = []
+            for district_id, villages in PRONE_VILLAGES.items():
+                if district_filter and district_id != district_filter:
+                    continue
+                # Find region for this district
+                region_id = None
+                for rid, dists in DISTRICTS.items():
+                    if any(d["district_id"] == district_id for d in dists):
+                        region_id = rid
+                        break
+                if region_filter and region_id != region_filter:
+                    continue
+                for v in villages:
+                    if dtype_filter and dtype_filter not in v["disaster_types"]:
+                        continue
+                    result.append({
+                        "village_name": v["name"],
+                        "district_id": district_id,
+                        "region_id": region_id,
+                        "lat": v["lat"],
+                        "lon": v["lon"],
+                        "disaster_types": v["disaster_types"],
+                        "historical_incidents": v["incidents"],
+                        "last_event": v["last_event"],
+                        "risk_score": min(100, v["incidents"] * 5),
+                    })
+            # Sort by incidents descending
+            result.sort(key=lambda x: -x["historical_incidents"])
+            self._send(200, result)
             return
 
         self._send(404, {"error": "Not found"})
